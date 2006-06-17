@@ -1,0 +1,14 @@
+AC_INIT
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(streamget, 1.0)
+
+AC_PROG_CC
+AC_PROG_INSTALL
+
+LIBCURL_CHECK_CONFIG
+
+AC_OUTPUT(		\
+	Makefile 	\
+	m4/Makefile	\
+	src/Makefile	\
+)
