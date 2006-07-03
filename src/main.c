@@ -1,33 +1,15 @@
 /*****************************************************************************
  *
- * This example source code introduces a c library buffered I/O interface to
- * URL reads it supports fopen(), fread(), fgets(), feof(), fclose(),
- * rewind(). Supported functions have identical prototypes to their normal c
- * lib namesakes and are preceaded by url_ .
+ * The streamget program is designed to receive streaming mp3 data from an
+ * URL address in a robust manner. When the stream is disconnected (eof
+ * condition on the data transfer from the URL), then streamget attempts
+ * to reconnect. The transfer stops after a specified time.
+ * This program is used to record streaming mp3 casts from an icecast server.
+ * The program is usually started from cron at a specific time and continues
+ * to record the stream for the specified time.
  *
- * Using this code you can replace your program's fopen() with url_fopen()
- * and fread() with url_fread() and it become possible to read remote streams
- * instead of (only) local files. Local files (ie those that can be directly
- * fopened) will drop back to using the underlying clib implementations
- *
- * See the main() function at the bottom that shows an app that retrives from a
- * specified url using fgets() and fread() and saves as two output files.
- *
- * Coyright (c)2003 Simtec Electronics
- *
- * Re-implemented by Vincent Sanders <vince@kyllikki.org> with extensive
- * reference to original curl example code
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
+ * Copyright (c) 2006 AUDIOserver.nl
+ * Author: K.J. Wierenga <k.j.wierenga@audioserver.nl>
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -40,7 +22,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * This example requires libcurl 7.9.7 or later.
+ * This code requires libcurl 7.9.7 or later.
  */
 
 #include <stdio.h>
@@ -48,515 +30,371 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <getopt.h>
+#include <signal.h>
+#include <unistd.h>
+#include <time.h>
 
-#include <curl/curl.h>
+#include <url_fopen.h>
 
-enum fcurl_type_e { CFTYPE_NONE=0, CFTYPE_FILE=1, CFTYPE_CURL=2 };
+/* DEBUG macro */
+#define DEBUG1(stream, format, arg1) \
+do { if (g_options.debug) { fprintf(stream, (format), (arg1)); } } while (0)
+#define DEBUG2(stream, format, arg1, arg2) \
+do { if (g_options.debug) { fprintf(stream, (format), (arg1), (arg2)); } } while (0)
 
-struct fcurl_data
-{
-    enum fcurl_type_e type;     /* type of handle */
-    union {
-        CURL *curl;
-        FILE *file;
-    } handle;                   /* handle */
+/* local definitions */
+#define DEFAULT_TIME_LIMIT        (4 * 3600) /* (sec) four hours */
+#define DEFAULT_CONNECT_TIMEOUT   (2/*0*/)       /* (sec) twenty seconds */
+#define DEFAULT_CONNECT_PERIOD    (-1)       /* (sec) -1 means inifinite */
+#define DEFAULT_RECONNECT_TIMEOUT (1)        /* (sec) 1 second */
+#define DEFAULT_RECONNECT_PERIOD  (-1)       /* (sec) -1 means infinite */
+#define DEFAULT_RECONNECT_BACKOFF (0)        /* (sec) add 0 seconds to timeout at each attempt */
 
-    char *buffer;               /* buffer to store cached data*/
-    int buffer_len;             /* currently allocated buffers length */
-    int buffer_pos;             /* end of data in buffer*/
-    int still_running;          /* Is background url fetch still in progress */
+/* local function */
+static void      sg_usage(FILE* ostream);
+static void      sg_alrm(int);
+static URL_FILE* sg_connect(void);
+static int       sg_sleep(time_t seconds);
+static int       sg_set_alarm(int timeout);
+static int       sg_mainloop(void);
+
+/* local typedefs */
+typedef struct {
+
+  /* URL from which to read stream */
+  char* url;
+
+  /* name of the output file */
+  char* filename;
+
+  /* (sec) Time-limit in seconds */
+  int time_limit;
+
+  /* (sec) Time between initial connects if stream not yet available. */
+  int connect_timeout;
+
+  /* (sec) How long to try initial succesful initial connect */
+  int connect_period;
+  
+  /* (sec) Time between reconnects if stream drops. */
+  int reconnect_timeout;
+
+  /* (sec) How long to try reconnecting after dropped connection. */
+  int reconnect_period;
+
+  /* (sec) How many seconds to add to reconnect_timeout after each failed attempt.
+   * This is used to prevent excessive reconnection attempts which may overload
+   * the server.
+   */
+  int reconnect_backoff;
+
+  /* debug yes/no */
+  int debug;
+
+} StreamgetOptions;
+
+/* global variables */
+
+/* global variable to hold options */
+static StreamgetOptions g_options = {
+  0, /* no URL specified */
+  0, /* no FILENAME specified */
+  DEFAULT_TIME_LIMIT,
+  DEFAULT_CONNECT_TIMEOUT,
+  DEFAULT_CONNECT_PERIOD,
+  DEFAULT_RECONNECT_TIMEOUT,
+  DEFAULT_RECONNECT_PERIOD,
+  DEFAULT_RECONNECT_BACKOFF,
+  0, /* no debugging */
 };
 
-typedef struct fcurl_data URL_FILE;
-
-/* exported functions */
-URL_FILE *url_fopen(char *url,const char *operation);
-int url_fclose(URL_FILE *file);
-int url_feof(URL_FILE *file);
-size_t url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file);
-char * url_fgets(char *ptr, int size, URL_FILE *file);
-void url_rewind(URL_FILE *file);
-
-/* we use a global one for convenience */
-CURLM *multi_handle;
-
-/* curl calls this routine to get more data */
-static size_t
-write_callback(char *buffer,
-               size_t size,
-               size_t nitems,
-               void *userp)
+int parse_options(int argc, char** argv, StreamgetOptions* options)
 {
-    char *newbuff;
-    int rembuff;
+  int retval = 1;
+  int c;
 
-    URL_FILE *url = (URL_FILE *)userp;
-    size *= nitems;
+  opterr=0;
+  while (1) {
+    int option_index = 0;
 
-    rembuff=url->buffer_len - url->buffer_pos;//remaining space in buffer
+    static struct option long_options[] = {
+      { "url",               required_argument, 0, 'u' },
+      { "output",            required_argument, 0, 'o' },
+      { "time-limit",        required_argument, 0, 'l' },
+      { "connect-timeout",   required_argument, 0, 'c' },
+      { "connect-period",    required_argument, 0, 'p' },
+      { "reconnect-timeout", required_argument, 0, 'r' },
+      { "reconnect-period",  required_argument, 0, 'e' },
+      { "reconnect-backoff", required_argument, 0, 'b' },
+      { "debug",             no_argument,       0, 'd' },
+      { "help",              no_argument,       0, 'h' },
+      { 0, 0, 0, 0 },
+    };
 
-    if(size > rembuff)
-    {
-        //not enuf space in buffer
-        newbuff=realloc(url->buffer,url->buffer_len + (size - rembuff));
-        if(newbuff==NULL)
-        {
-            fprintf(stderr,"callback buffer grow failed\n");
-            size=rembuff;
-        }
-        else
-        {
-            /* realloc suceeded increase buffer size*/
-            url->buffer_len+=size - rembuff;
-            url->buffer=newbuff;
+    c = getopt_long(argc, argv, ":u:o:l:c:p:r:e:b:dh",
+		    long_options, &option_index);
+    if (c == -1) break;
 
-            /*printf("Callback buffer grown to %d bytes\n",url->buffer_len);*/
-        }
+    switch (c) {
+    case 'u':
+      options->url = optarg;
+      break;
+
+    case 'o':
+      options->filename = optarg;
+      break;
+
+    case 'l':
+      options->time_limit = atoi(optarg);
+      break;
+
+    case 'c':
+      options->connect_timeout = atoi(optarg);
+      break;
+
+    case 'p':
+      options->connect_period = atoi(optarg);
+      break;
+      
+    case 'r':
+      options->reconnect_timeout = atoi(optarg);
+      break;
+
+    case 'e':
+      options->reconnect_period = atoi(optarg);
+      break;
+
+    case 'b':
+      options->reconnect_backoff = atoi(optarg);
+      break;
+
+    case 'd':
+      options->debug = 1;
+      break;
+
+    case 'h':
+      sg_usage(stdout);
+      exit(EXIT_SUCCESS);
+      break;
+
+    case ':':
+      fprintf(stderr, "Error: missing value for option '%s'\n\n", argv[optind-1]);
+      retval=0;
+      break;
+
+    default:
+      fprintf(stderr, "Error: getopt returned unrecognised character code 0%o\n\n", c);
+      retval=0;
+      break;
     }
+  }
+   
+  if (optind < argc) {
+    retval=0;
+    fprintf(stderr, "Error: unrecognised arguments: ");
+    while (optind < argc) {
+      fprintf (stderr, "%s", argv[optind++]);
+    }
+    fprintf(stderr, "\n\n");
+  }
 
-    memcpy(&url->buffer[url->buffer_pos], buffer, size);
-    url->buffer_pos += size;
-
-    /*fprintf(stderr, "callback %d size bytes\n", size);*/
-
-    return size;
+  return retval;
 }
 
-/* use to attempt to fill the read buffer up to requested number of bytes */
-static int
-fill_buffer(URL_FILE *file,int want,int waittime)
+void sg_usage(FILE* ostream)
 {
-    fd_set fdread;
-    fd_set fdwrite;
-    fd_set fdexcep;
-    int maxfd;
-    struct timeval timeout;
-    int rc;
+  fprintf(ostream, "streamget \n\
+    --url              |-u =URL       # URL to get\n\
+    --output           |-o =FILENAME  # file to append output to\n\
+   [--time-limit       |-l =4*3600]   # in secs, total running time of program, -1=infinte)\n\
+   [--connect-timeout  |-c =20]       # in secs, time between initial connect attempts)\n\
+   [--connect-period   |-p =-1]       # in secs, total period to try to connect, -1=infinte)\n\
+   [--reconnect-timeout|-r =1]        # in secs, time between reconnect attempts)\n\
+   [--reconnect-retries|-e =-1]       # in secs, total period to try to connect, -1=infinte)\n\
+   [--reconnect-backoff|-b =0]        # in secs, # seconds to add to reconnect-timeout after each attempt)\n\
+   [--debug            | -d]          # enable debugging\n\
+   [--help]                           # this help text\n\
+");
+}
 
-    /* only attempt to fill buffer if transactions still running and buffer
-     * doesnt exceed required size already
-     */
-    if((!file->still_running) || (file->buffer_pos > want))
-        return 0;
+/*
+ * SIGALRM handler.
+ */
+static void sg_alrm(int signo)
+{
+  fprintf(stderr, "Recording time expired.\n");
+  exit(EXIT_SUCCESS);
+}
 
-    /* attempt to fill buffer */
-    do
-    {
-        FD_ZERO(&fdread);
-        FD_ZERO(&fdwrite);
-        FD_ZERO(&fdexcep);
-
-        /* set a suitable timeout to fail on */
-        timeout.tv_sec = 60; /* 1 minute */
-        timeout.tv_usec = 0;
-
-        /* get file descriptors from the transfers */
-        curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
-
-        rc = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
-
-        switch(rc) {
-        case -1:
-            /* select error */
-            break;
-
-        case 0:
-            break;
-
-        default:
-            /* timeout or readable/writable sockets */
-            /* note we *could* be more efficient and not wait for
-             * CURLM_CALL_MULTI_PERFORM to clear here and check it on re-entry
-             * but that gets messy */
-            while(curl_multi_perform(multi_handle, &file->still_running) ==
-                  CURLM_CALL_MULTI_PERFORM);
-
-            break;
-        }
-    } while(file->still_running && (file->buffer_pos < want));
+/*
+ * Set alarm to go off after timeout seconds.
+ * Install SIGALRM handler.
+ */
+static int sg_set_alarm(int timeout)
+{
+  if (SIG_ERR == signal(SIGALRM, sg_alrm)) {
     return 1;
+  }
+  alarm(timeout);
+  return 0;
 }
 
-/* use to remove want bytes from the front of a files buffer */
-static int
-use_buffer(URL_FILE *file,int want)
+URL_FILE* sg_connect(void)
 {
-    /* sort out buffer */
-    if((file->buffer_pos - want) <=0)
-    {
-        /* ditch buffer - write will recreate */
-        if(file->buffer)
-            free(file->buffer);
+  URL_FILE* handle = NULL;
+  int connect_count   
+    = (g_options.connect_period > 0
+       ? g_options.connect_period / g_options.connect_timeout : -1);
 
-        file->buffer=NULL;
-        file->buffer_pos=0;
-        file->buffer_len=0;
-    }
-    else
-    {
-        /* move rest down make it available for later */
-        memmove(file->buffer,
-                &file->buffer[want],
-                (file->buffer_pos - want));
+  while (!handle) {
 
-        file->buffer_pos -= want;
+    DEBUG2(stderr, "Attempt(%d) URL '%s'\n", connect_count, g_options.url);
+
+    DEBUG1(stderr, "handle (before open)=%p\n", handle);
+
+    /* open URL */
+    if (handle) url_fclose(handle);
+    handle = url_fopen(g_options.url, "r");
+
+    DEBUG1(stderr, "handle (after open)=%p\n", handle);
+
+    if (handle) continue;
+
+    if (connect_count < 0 || connect_count-- > 0) {
+
+      DEBUG2(stderr, "Failed to open URL '%s', sleep %d seconds.\n",
+	     g_options.url, g_options.connect_timeout);
+
+      sg_sleep(g_options.connect_timeout);
+	  
+    } else {
+	  
+      DEBUG2(stderr, "Connect-period of %d seconds expired.\n"
+	     "Failed to open URL '%s'\n",
+	     g_options.connect_period, g_options.url);
+	  
+      break;
     }
-    return 0;
+  }
+  
+  return handle;
 }
 
-
-
-URL_FILE *
-url_fopen(char *url,const char *operation)
+int sg_sleep(time_t seconds)
 {
-    /* this code could check for URLs or types in the 'url' and
-       basicly use the real fopen() for standard files */
+  int ret = 0;
+  struct timespec req;
+  struct timespec rem;
 
-    URL_FILE *file;
-    (void)operation;
+  req.tv_sec  =  seconds;
+  req.tv_nsec = 0;
+  memset(&rem, 0, sizeof(rem));
 
-    file = (URL_FILE *)malloc(sizeof(URL_FILE));
-    if(!file)
-        return NULL;
+  do {
+    ret = nanosleep(&req, &rem);
+    memcpy(&req, &rem, sizeof(struct timespec));
+  } while (ret < 0 && EINTR == errno);
 
-    memset(file, 0, sizeof(URL_FILE));
-
-    if((file->handle.file=fopen(url,operation)))
-    {
-        file->type = CFTYPE_FILE; /* marked as URL */
-    }
-    else
-    {
-        file->type = CFTYPE_CURL; /* marked as URL */
-        file->handle.curl = curl_easy_init();
-
-        curl_easy_setopt(file->handle.curl, CURLOPT_URL, url);
-        curl_easy_setopt(file->handle.curl, CURLOPT_WRITEDATA, file);
-        curl_easy_setopt(file->handle.curl, CURLOPT_VERBOSE, 0);
-        curl_easy_setopt(file->handle.curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(file->handle.curl, CURLOPT_FOLLOWLOCATION, 1);
-
-        if(!multi_handle)
-            multi_handle = curl_multi_init();
-
-        curl_multi_add_handle(multi_handle, file->handle.curl);
-
-        /* lets start the fetch */
-        while(curl_multi_perform(multi_handle, &file->still_running) ==
-              CURLM_CALL_MULTI_PERFORM );
-
-        if((file->buffer_pos == 0) && (!file->still_running))
-        {
-            /* if still_running is 0 now, we should return NULL */
-
-            /* make sure the easy handle is not in the multi handle anymore */
-            curl_multi_remove_handle(multi_handle, file->handle.curl);
-
-            /* cleanup */
-            curl_easy_cleanup(file->handle.curl);
-
-            free(file);
-
-            file = NULL;
-        }
-    }
-    return file;
+  return ret;
 }
 
-int
-url_fclose(URL_FILE *file)
+int sg_mainloop(void)
 {
-    int ret=0;/* default is good return */
+  int retval       = 0; /* assume success */
+  URL_FILE *handle = NULL;
+  FILE *outf       = NULL;
+  int nread        = 0;
+  char buffer[1024];
+  int reconnect_count
+    = (g_options.reconnect_period > 0
+       ? g_options.reconnect_period / g_options.reconnect_timeout : -1);
+  
+  /* open output file */
+  outf=fopen(g_options.filename, "a");
+  if(!outf) {
+    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n", g_options.filename, strerror(errno));
+    retval = 2;
+    goto exit;
+  }
 
-    switch(file->type)
-    {
-    case CFTYPE_FILE:
-        ret=fclose(file->handle.file); /* passthrough */
-        break;
+  /* set alarm for time limit */
+  if (sg_set_alarm(g_options.time_limit) < 0) {
+    retval = 3;
+    goto exit;
+  }
 
-    case CFTYPE_CURL:
-        /* make sure the easy handle is not in the multi handle anymore */
-        curl_multi_remove_handle(multi_handle, file->handle.curl);
+#if 0
+  if (!handle) goto exit;
 
-        /* cleanup */
-        curl_easy_cleanup(file->handle.curl);
-        break;
+  if(!handle || url_feof(handle)) {
+    fprintf(stderr, "Error: couldn't open URL '%s': %s\n", g_options.url, strerror(errno));
+    retval = 1;
+    goto exit;
+  }
+#endif
 
-    default: /* unknown or supported type - oh dear */
-        ret=EOF;
-        errno=EBADF;
-        break;
+  while (1) {
 
+    handle = sg_connect();
+
+    if (handle) {
+      do {
+	nread = url_fread(buffer, 1, sizeof(buffer), handle);
+	fwrite(buffer, 1, nread, outf);
+      } while(nread);
     }
 
-    if(file->buffer)
-        free(file->buffer);/* free any allocated buffer space */
+#if 1
+    if (!handle || url_feof(handle)) {
+      if (reconnect_count < 0 || reconnect_count-- > 0) {
+	sg_sleep(g_options.reconnect_timeout);
+      } else {
 
-    free(file);
+	DEBUG2(stderr, "Reconnect-period of %d seconds expired.\n"
+	       "Failed to open URL '%s'\n",
+	       g_options.connect_period, g_options.url);
 
-    return ret;
-}
-
-int
-url_feof(URL_FILE *file)
-{
-    int ret=0;
-
-    switch(file->type)
-    {
-    case CFTYPE_FILE:
-        ret=feof(file->handle.file);
-        break;
-
-    case CFTYPE_CURL:
-        if((file->buffer_pos == 0) && (!file->still_running))
-            ret = 1;
-        break;
-    default: /* unknown or supported type - oh dear */
-        ret=-1;
-        errno=EBADF;
-        break;
+	break;
+      }
     }
-    return ret;
-}
-
-size_t
-url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file)
-{
-    size_t want;
-
-    switch(file->type)
-    {
-    case CFTYPE_FILE:
-        want=fread(ptr,size,nmemb,file->handle.file);
-        break;
-
-    case CFTYPE_CURL:
-        want = nmemb * size;
-
-        fill_buffer(file,want,1);
-
-        /* check if theres data in the buffer - if not fill_buffer()
-         * either errored or EOF */
-        if(!file->buffer_pos)
-            return 0;
-
-        /* ensure only available data is considered */
-        if(file->buffer_pos < want)
-            want = file->buffer_pos;
-
-        /* xfer data to caller */
-        memcpy(ptr, file->buffer, want);
-
-        use_buffer(file,want);
-
-        want = want / size;     /* number of items - nb correct op - checked
-                                 * with glibc code*/
-
-        /*printf("(fread) return %d bytes %d left\n", want,file->buffer_pos);*/
-        break;
-
-    default: /* unknown or supported type - oh dear */
-        want=0;
-        errno=EBADF;
-        break;
-
+#endif
+  
+    if (handle) {
+      url_fclose(handle);
+      handle = NULL; 
     }
-    return want;
+  }
+
+  fclose(outf);       outf = NULL;
+
+ exit:
+  if (handle) url_fclose(handle);
+  if (outf)   fclose(outf);
+  return retval;
 }
-
-char *
-url_fgets(char *ptr, int size, URL_FILE *file)
-{
-    int want = size - 1;/* always need to leave room for zero termination */
-    int loop;
-
-    switch(file->type)
-    {
-    case CFTYPE_FILE:
-        ptr = fgets(ptr,size,file->handle.file);
-        break;
-
-    case CFTYPE_CURL:
-        fill_buffer(file,want,1);
-
-        /* check if theres data in the buffer - if not fill either errored or
-         * EOF */
-        if(!file->buffer_pos)
-            return NULL;
-
-        /* ensure only available data is considered */
-        if(file->buffer_pos < want)
-            want = file->buffer_pos;
-
-        /*buffer contains data */
-        /* look for newline or eof */
-        for(loop=0;loop < want;loop++)
-        {
-            if(file->buffer[loop] == '\n')
-            {
-                want=loop+1;/* include newline */
-                break;
-            }
-        }
-
-        /* xfer data to caller */
-        memcpy(ptr, file->buffer, want);
-        ptr[want]=0;/* allways null terminate */
-
-        use_buffer(file,want);
-
-        /*printf("(fgets) return %d bytes %d left\n", want,file->buffer_pos);*/
-        break;
-
-    default: /* unknown or supported type - oh dear */
-        ptr=NULL;
-        errno=EBADF;
-        break;
-    }
-
-    return ptr;/*success */
-}
-
-void
-url_rewind(URL_FILE *file)
-{
-    switch(file->type)
-    {
-    case CFTYPE_FILE:
-        rewind(file->handle.file); /* passthrough */
-        break;
-
-    case CFTYPE_CURL:
-        /* halt transaction */
-        curl_multi_remove_handle(multi_handle, file->handle.curl);
-
-        /* restart */
-        curl_multi_add_handle(multi_handle, file->handle.curl);
-
-        /* ditch buffer - write will recreate - resets stream pos*/
-        if(file->buffer)
-            free(file->buffer);
-
-        file->buffer=NULL;
-        file->buffer_pos=0;
-        file->buffer_len=0;
-
-        break;
-
-    default: /* unknown or supported type - oh dear */
-        break;
-
-    }
-
-}
-
-
-/* Small main program to retrive from a url using fgets and fread saving the
+/*
+ * Main program 
  * output to two test files (note the fgets method will corrupt binary files if
  * they contain 0 chars */
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    URL_FILE *handle;
-    FILE *outf;
+  if (!parse_options(argc, argv, &g_options)) {
+    sg_usage(stderr);
+    exit(EXIT_FAILURE);
+  }
 
-    int nread;
-    char buffer[256];
-    char *url;
+  if (!g_options.url) {
+    fprintf(stderr, "Error: no URL specified.\n\n");
+    sg_usage(stderr);
+    exit(EXIT_FAILURE);
+  }
+  if (!g_options.filename) {
+    fprintf(stderr, "Error: no output file specified.\n\n");
+    sg_usage(stderr);
+    exit(EXIT_FAILURE);
+  }
 
-    if(argc < 2)
-    {
-        url="http://192.168.7.3/testfile";/* default to testurl */
-    }
-    else
-    {
-        url=argv[1];/* use passed url */
-    }
-#if 0
-    /* copy from url line by line with fgets */
-    outf=fopen("fgets.test","w+");
-    if(!outf)
-    {
-        perror("couldnt open fgets output file\n");
-        return 1;
-    }
-
-    handle = url_fopen(url, "r");
-    if(!handle)
-    {
-        printf("couldn't url_fopen()\n");
-        fclose(outf);
-        return 2;
-    }
-
-    while(!url_feof(handle))
-    {
-        url_fgets(buffer,sizeof(buffer),handle);
-        fwrite(buffer,1,strlen(buffer),outf);
-    }
-
-    url_fclose(handle);
-
-    fclose(outf);
-
-#endif
-
-    /* Copy from url with fread */
-    outf=fopen("fread.test","w+");
-    if(!outf)
-    {
-        perror("couldnt open fread output file\n");
-        return 1;
-    }
-
-    handle = url_fopen(url, "r");
-    if(!handle) {
-        printf("couldn't url_fopen()\n");
-        fclose(outf);
-        return 2;
-    }
-
-    do {
-        nread = url_fread(buffer, 1,sizeof(buffer), handle);
-        fwrite(buffer,1,nread,outf);
-    } while(nread);
-
-    url_fclose(handle);
-
-    fclose(outf);
-
-#if 0
-    /* Test rewind */
-    outf=fopen("rewind.test","w+");
-    if(!outf)
-    {
-        perror("couldnt open fread output file\n");
-        return 1;
-    }
-
-    handle = url_fopen("testfile", "r");
-    if(!handle) {
-        printf("couldn't url_fopen()\n");
-        fclose(outf);
-        return 2;
-    }
-
-        nread = url_fread(buffer, 1,sizeof(buffer), handle);
-        fwrite(buffer,1,nread,outf);
-        url_rewind(handle);
-
-        buffer[0]='\n';
-        fwrite(buffer,1,1,outf);
-
-        nread = url_fread(buffer, 1,sizeof(buffer), handle);
-        fwrite(buffer,1,nread,outf);
-
-
-    url_fclose(handle);
-
-    fclose(outf);
-#endif
-
-    return 0;/* all done */
+  /* we got the parameters, get going... */
+  return sg_mainloop();
 }
