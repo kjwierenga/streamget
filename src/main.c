@@ -330,9 +330,13 @@ int sg_mainloop(void)
       if (nread) url_setprogress(handle, g_options.progress);
 
       /* set alarm for time limit if any data was written */
-      if (0 == nwritten && sg_set_alarm(g_options.time_limit) < 0) {
-	retval = 3;
-	goto exit;
+      if (nread && 0 == nwritten) {
+	VERBOSE1(stderr, "Stream active, starting recording which will last %d seconds\n",
+		 g_options.time_limit);
+	if (sg_set_alarm(g_options.time_limit) < 0) {
+	  retval = 3;
+	  goto exit;
+	}
       }
 
       while (nread) {
