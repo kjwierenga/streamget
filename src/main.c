@@ -36,16 +36,17 @@
 #include <time.h>
 
 #include <url_fopen.h>
+#include <daemonize.h>
 
-/* DEBUG macro */
-#define DEBUG1(stream, format, arg1) \
-do { if (g_options.debug) { fprintf(stream, (format), (arg1)); } } while (0)
-#define DEBUG2(stream, format, arg1, arg2) \
-do { if (g_options.debug) { fprintf(stream, (format), (arg1), (arg2)); } } while (0)
+/* VERBOSE macro */
+#define VERBOSE1(stream, format, arg1) \
+do { if (g_options.verbose > 0) { fprintf(stream, (format), (arg1)); } } while (0)
+#define VERBOSE2(stream, format, arg1, arg2) \
+do { if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2)); } } while (0)
 
 /* local definitions */
 #define DEFAULT_TIME_LIMIT        (4 * 3600) /* (sec) four hours */
-#define DEFAULT_CONNECT_TIMEOUT   (2/*0*/)       /* (sec) twenty seconds */
+#define DEFAULT_CONNECT_TIMEOUT   (20)       /* (sec) twenty seconds */
 #define DEFAULT_CONNECT_PERIOD    (-1)       /* (sec) -1 means inifinite */
 #define DEFAULT_RECONNECT_TIMEOUT (1)        /* (sec) 1 second */
 #define DEFAULT_RECONNECT_PERIOD  (-1)       /* (sec) -1 means infinite */
@@ -54,7 +55,6 @@ do { if (g_options.debug) { fprintf(stream, (format), (arg1), (arg2)); } } while
 /* local function */
 static void      sg_usage(FILE* ostream);
 static void      sg_alrm(int);
-static URL_FILE* sg_connect(void);
 static int       sg_sleep(time_t seconds);
 static int       sg_set_alarm(int timeout);
 static int       sg_mainloop(void);
@@ -88,9 +88,15 @@ typedef struct {
    * the server.
    */
   int reconnect_backoff;
+  
+  /* show prgress yes/no */
+  int progress;
 
-  /* debug yes/no */
-  int debug;
+  /* verbose yes/no */
+  int verbose;
+
+  /* daemonize */
+  int daemonize;
 
 } StreamgetOptions;
 
@@ -106,7 +112,9 @@ static StreamgetOptions g_options = {
   DEFAULT_RECONNECT_TIMEOUT,
   DEFAULT_RECONNECT_PERIOD,
   DEFAULT_RECONNECT_BACKOFF,
-  0, /* no debugging */
+  0, /* don't show progress */
+  0, /* don't be verbose */
+  0, /* do not daemonize */
 };
 
 int parse_options(int argc, char** argv, StreamgetOptions* options)
@@ -123,16 +131,18 @@ int parse_options(int argc, char** argv, StreamgetOptions* options)
       { "output",            required_argument, 0, 'o' },
       { "time-limit",        required_argument, 0, 'l' },
       { "connect-timeout",   required_argument, 0, 'c' },
-      { "connect-period",    required_argument, 0, 'p' },
+      { "connect-period",    required_argument, 0, 't' },
       { "reconnect-timeout", required_argument, 0, 'r' },
       { "reconnect-period",  required_argument, 0, 'e' },
       { "reconnect-backoff", required_argument, 0, 'b' },
-      { "debug",             no_argument,       0, 'd' },
+      { "progress",          no_argument,       0, 'p' },
+      { "daemonize",         no_argument,       0, 'd' },
+      { "verbose",           no_argument,       0, 'v' },
       { "help",              no_argument,       0, 'h' },
       { 0, 0, 0, 0 },
     };
 
-    c = getopt_long(argc, argv, ":u:o:l:c:p:r:e:b:dh",
+    c = getopt_long(argc, argv, ":u:o:l:c:t:r:e:b:pdvh",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -153,7 +163,7 @@ int parse_options(int argc, char** argv, StreamgetOptions* options)
       options->connect_timeout = atoi(optarg);
       break;
 
-    case 'p':
+    case 't':
       options->connect_period = atoi(optarg);
       break;
       
@@ -169,8 +179,17 @@ int parse_options(int argc, char** argv, StreamgetOptions* options)
       options->reconnect_backoff = atoi(optarg);
       break;
 
+    case 'p':
+      options->progress = 1;
+      break;
+
     case 'd':
-      options->debug = 1;
+      options->daemonize = 1;
+      break;
+
+    case 'v':
+      /* set verbose level */
+      options->verbose++;
       break;
 
     case 'h':
@@ -209,11 +228,13 @@ void sg_usage(FILE* ostream)
     --output           |-o =FILENAME  # file to append output to\n\
    [--time-limit       |-l =4*3600]   # in secs, total running time of program, -1=infinte)\n\
    [--connect-timeout  |-c =20]       # in secs, time between initial connect attempts)\n\
-   [--connect-period   |-p =-1]       # in secs, total period to try to connect, -1=infinte)\n\
+   [--connect-period   |-t =-1]       # in secs, total period to try to connect, -1=infinte)\n\
    [--reconnect-timeout|-r =1]        # in secs, time between reconnect attempts)\n\
    [--reconnect-retries|-e =-1]       # in secs, total period to try to connect, -1=infinte)\n\
    [--reconnect-backoff|-b =0]        # in secs, # seconds to add to reconnect-timeout after each attempt)\n\
-   [--debug            | -d]          # enable debugging\n\
+   [--progress         | -p]          # show progress meter\n\
+   [--daemonize        | -d]          # start the process in the background\n\
+   [--verbose          | -v]          # increase verbosity level e.g. -v, -vv, -vvv, etc.\n\
    [--help]                           # this help text\n\
 ");
 }
@@ -223,7 +244,10 @@ void sg_usage(FILE* ostream)
  */
 static void sg_alrm(int signo)
 {
-  fprintf(stderr, "Recording time expired.\n");
+  if (g_options.verbose > 1) {
+    fprintf(stderr, "\nSet recording time of %d seconds expired.\n",
+	    g_options.time_limit);
+  }
   exit(EXIT_SUCCESS);
 }
 
@@ -240,47 +264,10 @@ static int sg_set_alarm(int timeout)
   return 0;
 }
 
-URL_FILE* sg_connect(void)
-{
-  URL_FILE* handle = NULL;
-  int connect_count   
-    = (g_options.connect_period > 0
-       ? g_options.connect_period / g_options.connect_timeout : -1);
-
-  while (!handle) {
-
-    DEBUG2(stderr, "Attempt(%d) URL '%s'\n", connect_count, g_options.url);
-
-    DEBUG1(stderr, "handle (before open)=%p\n", handle);
-
-    /* open URL */
-    if (handle) url_fclose(handle);
-    handle = url_fopen(g_options.url, "r");
-
-    DEBUG1(stderr, "handle (after open)=%p\n", handle);
-
-    if (handle) continue;
-
-    if (connect_count < 0 || connect_count-- > 0) {
-
-      DEBUG2(stderr, "Failed to open URL '%s', sleep %d seconds.\n",
-	     g_options.url, g_options.connect_timeout);
-
-      sg_sleep(g_options.connect_timeout);
-	  
-    } else {
-	  
-      DEBUG2(stderr, "Connect-period of %d seconds expired.\n"
-	     "Failed to open URL '%s'\n",
-	     g_options.connect_period, g_options.url);
-	  
-      break;
-    }
-  }
-  
-  return handle;
-}
-
+/*
+ * Sleep for the specified number of seconds.
+ * This function does not interfere with signals.
+ */
 int sg_sleep(time_t seconds)
 {
   int ret = 0;
@@ -305,68 +292,98 @@ int sg_mainloop(void)
   URL_FILE *handle = NULL;
   FILE *outf       = NULL;
   int nread        = 0;
-  char buffer[1024];
-  int reconnect_count
-    = (g_options.reconnect_period > 0
-       ? g_options.reconnect_period / g_options.reconnect_timeout : -1);
-  
+  int nwritten     = 0; /* total written bytes written to file */
+  int nwritten_now = 0; /* bytes written in one iteration of the loop */
+  char buffer[8 * 1024];
+
   /* open output file */
   outf=fopen(g_options.filename, "a");
   if(!outf) {
-    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n", g_options.filename, strerror(errno));
+    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n",
+	    g_options.filename, strerror(errno));
     retval = 2;
     goto exit;
   }
 
-  /* set alarm for time limit */
-  if (sg_set_alarm(g_options.time_limit) < 0) {
-    retval = 3;
-    goto exit;
-  }
+  int* timeout = &g_options.connect_timeout;
+  int* period  = &g_options.connect_period;
+  int connect_count = (*period> 0 ? *period / *timeout : -1);
 
-#if 0
-  if (!handle) goto exit;
-
-  if(!handle || url_feof(handle)) {
-    fprintf(stderr, "Error: couldn't open URL '%s': %s\n", g_options.url, strerror(errno));
-    retval = 1;
-    goto exit;
-  }
-#endif
-
+  /* try forever or until (re)connect periods or the time limit expire */
   while (1) {
 
-    handle = sg_connect();
+    /* open URL */
+    if (handle) url_fclose(handle);
+    handle = url_fopen(g_options.url, "r");
 
     if (handle) {
-      do {
+
+      /* set options */
+      if (g_options.verbose > 1) {
+	url_setverbose(handle, g_options.verbose);
+      }
+
+      /* first read */
+      nread = url_fread(buffer, 1, sizeof(buffer), handle);
+
+      /* be verbose if data was read */
+      if (nread) url_setprogress(handle, g_options.progress);
+
+      /* set alarm for time limit if any data was written */
+      if (0 == nwritten && sg_set_alarm(g_options.time_limit) < 0) {
+	retval = 3;
+	goto exit;
+      }
+
+      while (nread) {
+	if (nread != (nwritten_now = fwrite(buffer, 1, nread, outf))) {
+	  fprintf(stderr, "Error writing to file '%s': %s.\n",
+		  g_options.filename, strerror(errno));
+	  retval = 4;
+	  goto exit;
+	}
+	nwritten += nwritten_now;
 	nread = url_fread(buffer, 1, sizeof(buffer), handle);
-	fwrite(buffer, 1, nread, outf);
-      } while(nread);
-    }
-
-#if 1
-    if (!handle || url_feof(handle)) {
-      if (reconnect_count < 0 || reconnect_count-- > 0) {
-	sg_sleep(g_options.reconnect_timeout);
-      } else {
-
-	DEBUG2(stderr, "Reconnect-period of %d seconds expired.\n"
-	       "Failed to open URL '%s'\n",
-	       g_options.connect_period, g_options.url);
-
-	break;
       }
     }
-#endif
-  
-    if (handle) {
-      url_fclose(handle);
-      handle = NULL; 
+
+    /*
+     * Use reconnect timeout and period once we've written something to file
+     * this is no longer concerning the initial connect.
+     */
+    if (nwritten > 0) {
+      timeout = &g_options.reconnect_timeout;
+      period = &g_options.reconnect_period;
+      connect_count = (*period > 0 ? *period / *timeout : -1);
     }
+
+    /*    if (!handle || url_feof(handle)) { */
+    if (connect_count < 0 || --connect_count > 0) {
+      if (nwritten <= 0) {
+	VERBOSE1(stderr, "Stream not active. Next connect attempt in %d seconds.\n",
+		 *timeout);
+      } else {
+	VERBOSE1(stderr, "Lost connection. Reconnecting in %d seconds.\n", *timeout);
+      }
+      sg_sleep(*timeout);
+    } else {
+
+      if (nwritten <= 0) {
+	VERBOSE2(stderr, "Stream not active after connect period of %d seconds expired.\n"
+		 "Failed to open URL '%s'\n", *period, g_options.url);
+      } else {
+	VERBOSE2(stderr, "(Re)connect-period of %d seconds expired.\n"
+		 "Failed to open URL '%s'\n", *period, g_options.url);
+      }
+
+      break;
+    }
+    /*}*/
   }
 
-  fclose(outf);       outf = NULL;
+  /* close output file */
+  fclose(outf);
+  outf = NULL;
 
  exit:
   if (handle) url_fclose(handle);
@@ -393,6 +410,10 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Error: no output file specified.\n\n");
     sg_usage(stderr);
     exit(EXIT_FAILURE);
+  }
+
+  if (g_options.daemonize) { 
+    daemonize(g_options.verbose);
   }
 
   /* we got the parameters, get going... */

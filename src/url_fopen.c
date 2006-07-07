@@ -206,7 +206,35 @@ use_buffer(URL_FILE *file,int want)
     return 0;
 }
 
+static int setoption(CURL* curl, CURLoption option, int value)
+{
+  if (!curl) {
+    errno=EBADF;
+    return EOF;
+  }
 
+  return curl_easy_setopt(curl, option, value);
+}
+
+int url_setverbose(URL_FILE* file, int value)
+{
+  if (!file || file->type != CFTYPE_CURL) {
+    errno=EBADF;
+    return EOF;
+  }
+
+  return setoption(file->handle.curl, CURLOPT_VERBOSE, value ? 1 : 0);
+}
+
+int url_setprogress(URL_FILE* file, int value)
+{
+  if (!file || file->type != CFTYPE_CURL) {
+    errno=EBADF;
+    return EOF;
+  }
+
+  return setoption(file->handle.curl, CURLOPT_NOPROGRESS, value ? 0 : 1);
+}
 
 URL_FILE *
 url_fopen(char *url,const char *operation)
@@ -234,13 +262,11 @@ url_fopen(char *url,const char *operation)
 
         curl_easy_setopt(file->handle.curl, CURLOPT_URL, url);
         curl_easy_setopt(file->handle.curl, CURLOPT_WRITEDATA, file);
-        curl_easy_setopt(file->handle.curl, CURLOPT_VERBOSE, 0);
         curl_easy_setopt(file->handle.curl, CURLOPT_WRITEFUNCTION, write_callback);
 
 	/* streamget requires the following options */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FOLLOWLOCATION, 1); /* redirect automatically */
 	curl_easy_setopt(file->handle.curl, CURLOPT_NOSIGNAL, 1);       /* we don't want signals */
-	curl_easy_setopt(file->handle.curl, CURLOPT_NOPROGRESS, 0);     /* show progress info */
 #if 0
 	curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1);    /* fail  on error codes > 300 */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FRESH_CONNECT, 1);  /* new connection every time */
