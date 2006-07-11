@@ -10,11 +10,11 @@
 
 #include <daemonize.h>
  
-int daemonize(int verbose)
+int daemonize()
 {
   int err = -1;
   pid_t pid;
-  int i;
+  /*int i;*/
   int fd = -1;
      
   pid = fork();
@@ -45,13 +45,16 @@ int daemonize(int verbose)
   /* It's not good idea to stay in old working directory. Don't care 
    * about errors though... */
 
-  /* It's cumbersome to run from
+  /* It's cumbersome to run from */
+#if 0
   chdir("/");
-  */
+#endif
      
   /* We dont do umask(0) here, as suggested by
    * http://www.unixguide.net/unix/programming/1.7.shtml */
-     
+
+  /* Don't want to close all files! because output file would be closed too */
+#if 0
   /* Close all files except stdin, stdout and stderr. */
   for (i = getdtablesize(); i > 2; --i) {
     for (;;) {
@@ -63,7 +66,9 @@ int daemonize(int verbose)
       }
     }
   }
-     
+#endif
+
+#if 0     
   /* Open /dev/null for redirections. */
   for (;;) {
     fd = open("/dev/null", O_RDWR);
@@ -75,22 +80,20 @@ int daemonize(int verbose)
       goto e;
     }
   }
-     
-  if (!verbose) {
-    /* Redirect stdin, stdout and stderr. */
-    for (i = 0; i < 3; ++i) {
-      for (;;) {
-	if (dup2(fd, i) != -1) {
-	  break;
-	}
-	if (errno != EINTR) {
-	  fprintf(stderr, "dup2() failed for %d: %s", i, strerror(errno));
-	  goto e;
-	}
+
+  /* Redirect stdin, stderr, but not stdout. */
+  for (i = 0; i < 3; ++i) {
+    for (;;) {
+      if (dup2(fd, i) != -1) {
+	break;
+      }
+      if (errno != EINTR) {
+	fprintf(stderr, "dup2() failed for %d: %s", i, strerror(errno));
+	goto e;
       }
     }
   }
-     
+#endif
   err = 0;
      
  e:

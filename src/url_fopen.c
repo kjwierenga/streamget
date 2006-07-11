@@ -71,6 +71,7 @@ struct fcurl_data
 
 typedef struct fcurl_data URL_FILE;
 
+#if 0
 /* exported functions */
 URL_FILE *url_fopen(char *url,const char *operation);
 int url_fclose(URL_FILE *file);
@@ -78,6 +79,7 @@ int url_feof(URL_FILE *file);
 size_t url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file);
 char * url_fgets(char *ptr, int size, URL_FILE *file);
 void url_rewind(URL_FILE *file);
+#endif
 
 /* we use a global one for convenience */
 CURLM *multi_handle;
@@ -236,8 +238,18 @@ int url_setprogress(URL_FILE* file, int value)
   return setoption(file->handle.curl, CURLOPT_NOPROGRESS, value ? 0 : 1);
 }
 
+int url_setuseragent(URL_FILE* file, char* value)
+{
+  if (!file || file->type != CFTYPE_CURL) {
+    errno=EBADF;
+    return EOF;
+  }
+
+  return curl_easy_setopt(file, CURLOPT_USERAGENT, value);
+}
+
 URL_FILE *
-url_fopen(char *url,const char *operation)
+url_fopen(char *url,const char *operation, char *useragent)
 {
     /* this code could check for URLs or types in the 'url' and
        basicly use the real fopen() for standard files */
@@ -267,6 +279,10 @@ url_fopen(char *url,const char *operation)
 	/* streamget requires the following options */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FOLLOWLOCATION, 1); /* redirect automatically */
 	curl_easy_setopt(file->handle.curl, CURLOPT_NOSIGNAL, 1);       /* we don't want signals */
+	if (useragent) {
+	  curl_easy_setopt(file->handle.curl, CURLOPT_USERAGENT, useragent);
+	}
+	curl_easy_setopt(file->handle.curl, CURLOPT_STDERR, stdout); /* send verbose and progress to stdout */
 #if 0
 	curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1);    /* fail  on error codes > 300 */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FRESH_CONNECT, 1);  /* new connection every time */

@@ -9,9 +9,10 @@
 typedef struct fcurl_data URL_FILE;
 
 /* exported functions */
-URL_FILE *url_fopen(char *url,const char *operation);
+URL_FILE *url_fopen(char *url,const char *operation, char *useragent);
 int       url_setverbose(URL_FILE *file, int verbose);
 int       url_setprogress(URL_FILE* file, int progress);
+int       url_setuseragent(URL_FILE* file, char* agent);
 int       url_fclose(URL_FILE *file);
 int       url_feof(URL_FILE *file);
 size_t    url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file);
