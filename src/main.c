@@ -8,7 +8,7 @@
  * The program is usually started from cron at a specific time and continues
  * to record the stream for the specified time.
  *
- * Copyright (c) 2006 AUDIOserver.nl
+ * Copyright (c) 2006 AUDIOserver.nl 
  * Author: K.J. Wierenga <k.j.wierenga@audioserver.nl>
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
