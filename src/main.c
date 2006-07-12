@@ -60,6 +60,10 @@ if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2), (arg3), (
 } while (0)
 
 /* local definitions */
+#define SVNID       "$Id:$"
+#define SVNDATE     "$Date:$"
+#define SVNREVISION "$Revision$";
+
 #define BUFFERSIZE                (8 * 1024) /* read/write in these chunks */
 #define DEFAULT_TIME_LIMIT        (4 * 3600) /* (sec) four hours */
 #define DEFAULT_CONNECT_TIMEOUT   (20)       /* (sec) twenty seconds */
@@ -130,7 +134,6 @@ static int       sg_parse_options(int argc, char** argv, StreamgetOptions* optio
 static int       sg_mainloop(void);
 
 /* global variables */
-static char* g_revision = "$Revision$;
 static char* g_useragent = "Streamget/" VERSION " (Rev " SVN_REVSTR ")";
 
 /* global variable to hold options */
@@ -341,7 +344,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
 void sg_usage(FILE* ostream)
 {
-  fprintf(ostream, "streamget " VERSION "(Rev " SVN_REVSTR ")\n\
+  fprintf(ostream, "streamget " VERSION " (Rev " SVN_REVSTR ")\n\
     --url              |-u =URL       # URL to get\n\
     --output           |-o =FILENAME  # file to append output to\n\
    [--log              |-l =FILENAME] # output logging to this file, raise verbosity level by 1\n\
