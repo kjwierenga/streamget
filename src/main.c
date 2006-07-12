@@ -38,6 +38,8 @@
 
 #include <url_fopen.h>
 #include <daemonize.h>
+#include "svnrev.h"
+#include "config.h"
 
 /* VERBOSE macro */
 #define VERBOSE1(stream, format, arg1) \
@@ -58,9 +60,7 @@ if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2), (arg3), (
 } while (0)
 
 /* local definitions */
-#define BUFFERSIZE           (8 * 1024)
-#define MAX_USERAGENT_LENGTH 64
-
+#define BUFFERSIZE                (8 * 1024) /* read/write in these chunks */
 #define DEFAULT_TIME_LIMIT        (4 * 3600) /* (sec) four hours */
 #define DEFAULT_CONNECT_TIMEOUT   (20)       /* (sec) twenty seconds */
 #define DEFAULT_CONNECT_PERIOD    (-1)       /* (sec) -1 means inifinite */
@@ -127,11 +127,10 @@ static int       sg_set_alarm(int timeout);
 static void      sg_reset_countdown(StreamgetOptions* options);
 static int       sg_open_logfile(StreamgetOptions* options);
 static int       sg_parse_options(int argc, char** argv, StreamgetOptions* options);
-static void      sg_fix_useragent();
 static int       sg_mainloop(void);
 
 /* global variables */
-static char* g_useragent = "Streamget/$Revision$";
+static char* g_useragent = "Streamget/" VERSION " (Rev " SVN_REVSTR ")";
 
 /* global variable to hold options */
 static StreamgetOptions g_options = {
@@ -188,7 +187,7 @@ static int sg_open_logfile(StreamgetOptions* options)
 {
   int i = -1;
 
-  if (!options || !options->logname) return -1;
+  if (!options || !options->logname) return 0;
 
   options->log = fopen(options->logname, "a");
   if (!options->log) {
@@ -247,7 +246,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       { 0, 0, 0, 0 },
     };
 
-    c = getopt_long(argc, argv, ":u:o:l:s:xc:t:r:e:pdvh",
+    c = getopt_long(argc, argv, "u:o:l:s:xc:t:r:e:pdvh",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -261,6 +260,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       break;
 
     case 'l':
+      options->verbose++; /* raise the verbosity level */
       options->logname = optarg;
       break;
 
@@ -340,10 +340,10 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
 void sg_usage(FILE* ostream)
 {
-  fprintf(ostream, "streamget \n\
+  fprintf(ostream, "streamget " VERSION "(Rev " SVN_REVSTR ")\n\
     --url              |-u =URL       # URL to get\n\
     --output           |-o =FILENAME  # file to append output to\n\
-   [--log              |-l =FILENAME] # output logging to this file\n\
+   [--log              |-l =FILENAME] # output logging to this file, raise verbosity level by 1\n\
    [--time-limit       |-s =4*3600]   # in secs, limit recording time, -1=infinte)\n\
    [--time-from-connect|-x]           # start the time-limit timer when first connected\n\
                                         default is to start timer when the program starts\n\
@@ -353,7 +353,7 @@ void sg_usage(FILE* ostream)
    [--reconnect-retries|-e =600]      # in secs, total period to try to connect, default is infinte)\n\
    [--progress         | -p]          # show progress meter\n\
    [--daemonize        | -d]          # start the process in the background\n\
-   [--verbose          | -v]          # increase verbosity level e.g. -v, -vv, -vvv, etc.\n\
+   [--verbose          | -v]          # increase verbosity level by 1,2, etc e.g. -v, -vv, -vvv, etc.\n\
    [--help]                           # this help text\n\
 ");
 }
@@ -406,37 +406,6 @@ int sg_sleep(time_t seconds)
   return ret;
 }
 
-/*
- * This function should be called once during
- * the lifetime of the program.
- */
-static void sg_fix_useragent()
-{
-  /* fix up useragent (remove Revision keyword)
-   * Assumes there is a slash after Streamget.
-   */
-
-  /* first make a copy, it is not allowed to write
-   * to a string litereal which g_useragent is at
-   * this point.
-   */
-  g_useragent = strdup(g_useragent);
-
-  /* find slash */
-  char* slash = strchr(g_useragent, '/');
-  if (!slash) return;
-  slash++; /* skip over slash */
-
-  /* find first digit */
-  char* rev = slash;
-  while (*rev && !isdigit(*rev)) rev++;
-  /* rev now pointing to first digit */
-
-  /* copy all digits */
-  while (isdigit(*rev)) *slash++ = *rev++;
-  *slash = '\0'; // null-terminate;
-}
-
 int sg_mainloop(void)
 {
   int retval       = 0; /* assume success */
@@ -448,7 +417,7 @@ int sg_mainloop(void)
   char buffer[BUFFERSIZE];
 
   /* open output file */
-  outf=fopen(g_options.output, "a");
+  outf = fopen(g_options.output, "a");
   if(!outf) {
     fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n",
 	    g_options.output, strerror(errno));
@@ -486,16 +455,19 @@ int sg_mainloop(void)
       if (nread) url_setprogress(handle, g_options.progress);
 
       /* set alarm for time limit when first data is written */
-      if (nread && 0 == nwritten) {
+      if (nread > 0) {
 	time_t now = time(0);
-	VERBOSE2(stdout, "Stream '%s' active %s", g_options.url, ctime(&now));
+	VERBOSE3(stdout, "Stream '%s' %s %s",
+		 g_options.url, nwritten ? "reconnected" : "active", ctime(&now));
 	sg_reset_countdown(&g_options);
 
-	if (g_options.time_from_connect) {
-	  now += g_options.time_limit;
-	  VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
-		   g_options.time_limit, ctime(&now));
-	  (void)sg_set_alarm(g_options.time_limit);
+	if (0 == nwritten) {
+	  if (g_options.time_from_connect) {
+	    now += g_options.time_limit;
+	    VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
+		     g_options.time_limit, ctime(&now));
+	    (void)sg_set_alarm(g_options.time_limit);
+	  }
 	}
       }
 
@@ -513,17 +485,6 @@ int sg_mainloop(void)
       }
     }
 
-#if 0
-    /*
-     * Use reconnect timeout and period once we've written something to file
-     * and reset it every time something was read from the stream.
-     */
-    if (nwritten > 0 && nread > 0) {
-      timeout = &g_options.reconnect_timeout;
-      period = &g_options.reconnect_period;
-    }
-#endif
-
     if (*countdown < 0 || --*countdown > 0) {
       if (nwritten <= 0) {
 	time_t now = time(0);
@@ -532,8 +493,8 @@ int sg_mainloop(void)
 	sg_sleep(g_options.connect_timeout);
       } else {
 	countdown = &g_options.reconnect_countdown;
-	VERBOSE3(stdout, "Lost connection to '%s'. Next attempt (%d) in %d seconds.\n",
-		 g_options.url, *countdown, g_options.reconnect_timeout);
+	VERBOSE2(stdout, "Lost connection. Reconnect attempt (%d) in %d seconds.\n",
+		 *countdown, g_options.reconnect_timeout);
 	sg_sleep(g_options.reconnect_timeout);
       }
 
@@ -577,10 +538,6 @@ int main(int argc, char *argv[])
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
-
-  /* fix up g_useragent string */
-  sg_fix_useragent();
-  VERBOSE1(stdout, "User-agent: %s\n", g_useragent);
 
   if (g_options.verbose > 1) {
     print_options(&g_options);

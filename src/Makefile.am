@@ -10,5 +10,11 @@ streamget_SOURCES = \
 	url_fopen.c \
 	main.c
 
+BUILT_SOURCES = \
+	svnrev.h
+
+svnrev.h: $(streamget_SOURCES)
+	svnrev $?
+
 streamget_LDADD = @LIBCURL@
 
