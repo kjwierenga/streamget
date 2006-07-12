@@ -130,7 +130,7 @@ static int       sg_mainloop(void);
 
 /* global variables */
 
-static char* g_useragent = "Streamget/$Revisions$";
+static char* g_useragent = "Streamget/$Revision$";
 
 /* global variable to hold options */
 static StreamgetOptions g_options = {
