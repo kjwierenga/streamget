@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/time.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -126,10 +127,10 @@ static int       sg_set_alarm(int timeout);
 static void      sg_reset_countdown(StreamgetOptions* options);
 static int       sg_open_logfile(StreamgetOptions* options);
 static int       sg_parse_options(int argc, char** argv, StreamgetOptions* options);
+static void      sg_fix_useragent();
 static int       sg_mainloop(void);
 
 /* global variables */
-
 static char* g_useragent = "Streamget/$Revision$";
 
 /* global variable to hold options */
@@ -362,10 +363,11 @@ void sg_usage(FILE* ostream)
  */
 static void sg_alrm(int signo)
 {
-  if (g_options.verbose > 1) {
+  if (g_options.verbose > 0) {
     time_t now = time(0);
     VERBOSE2(stdout, "\nTime limit of %d seconds expired at %s",
 	     g_options.time_limit, ctime(&now));
+    fsync(fileno(stdout));
   }
   exit(EXIT_SUCCESS);
 }
@@ -402,6 +404,37 @@ int sg_sleep(time_t seconds)
   } while (ret < 0 && EINTR == errno);
 
   return ret;
+}
+
+/*
+ * This function should be called once during
+ * the lifetime of the program.
+ */
+static void sg_fix_useragent()
+{
+  /* fix up useragent (remove Revision keyword)
+   * Assumes there is a slash after Streamget.
+   */
+
+  /* first make a copy, it is not allowed to write
+   * to a string litereal which g_useragent is at
+   * this point.
+   */
+  g_useragent = strdup(g_useragent);
+
+  /* find slash */
+  char* slash = strchr(g_useragent, '/');
+  if (!slash) return;
+  slash++; /* skip over slash */
+
+  /* find first digit */
+  char* rev = slash;
+  while (*rev && !isdigit(*rev)) rev++;
+  /* rev now pointing to first digit */
+
+  /* copy all digits */
+  while (isdigit(*rev)) *slash++ = *rev++;
+  *slash = '\0'; // null-terminate;
 }
 
 int sg_mainloop(void)
@@ -544,6 +577,10 @@ int main(int argc, char *argv[])
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
+
+  /* fix up g_useragent string */
+  sg_fix_useragent();
+  VERBOSE1(stdout, "User-agent: %s\n", g_useragent);
 
   if (g_options.verbose > 1) {
     print_options(&g_options);
