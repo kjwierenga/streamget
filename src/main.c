@@ -130,6 +130,7 @@ static int       sg_parse_options(int argc, char** argv, StreamgetOptions* optio
 static int       sg_mainloop(void);
 
 /* global variables */
+static char* g_revision = "$Revision$;
 static char* g_useragent = "Streamget/" VERSION " (Rev " SVN_REVSTR ")";
 
 /* global variable to hold options */

@@ -13,8 +13,10 @@ streamget_SOURCES = \
 BUILT_SOURCES = \
 	svnrev.h
 
-svnrev.h: $(streamget_SOURCES)
+svnrev.h: main.c
 	svnrev $?
+
+CLEANFILES = $(BUILT_SOURCES)
 
 streamget_LDADD = @LIBCURL@
 
