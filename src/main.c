@@ -60,8 +60,8 @@ if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2), (arg3), (
 } while (0)
 
 /* local definitions */
-#define SVNID       "$Id:$"
-#define SVNDATE     "$Date:$"
+#define SVNID       "$Id$"
+#define SVNDATE     "$Date$"
 #define SVNREVISION "$Revision$";
 
 #define BUFFERSIZE                (8 * 1024) /* read/write in these chunks */
@@ -420,15 +420,7 @@ int sg_mainloop(void)
   int nwritten_now = 0; /* bytes written in one iteration of the loop */
   char buffer[BUFFERSIZE];
 
-  /* open output file */
-  outf = fopen(g_options.output, "a");
-  if(!outf) {
-    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n",
-	    g_options.output, strerror(errno));
-    retval = 2;
-    goto exit;
-  }
-
+  /* Start time-limit timer, if required */
   if (!g_options.time_from_connect) {
     time_t now = time(0) + g_options.time_limit;
     VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
@@ -466,6 +458,20 @@ int sg_mainloop(void)
 	sg_reset_countdown(&g_options);
 
 	if (0 == nwritten) {
+
+	  /*
+	   * Open output file late (when first data is about to be written,
+	   * to prevent creating an empty file when the source is not yet active.
+	   */
+	  outf = fopen(g_options.output, "a");
+	  if(!outf) {
+	    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n",
+		    g_options.output, strerror(errno));
+	    retval = 2;
+	    goto exit;
+	  }
+
+	  /* start time-limit timer if required */
 	  if (g_options.time_from_connect) {
 	    now += g_options.time_limit;
 	    VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",

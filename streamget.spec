@@ -1,5 +1,5 @@
 Name:		streamget
-Version:	1.1
+Version:	1.2
 Release:	1
 Summary:	Robust stream recorder. Does automatic reconnect when stream is temporarily unavailable.
 Group:		Applications/Multimedia
@@ -62,3 +62,4 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/doc/%{name}
 %{_bindir}/streamget
 
 %changelog
+# See ChangeLog
