@@ -2,5 +2,6 @@
 
 	* version 1.2
 	* open output file after first succesful read
+	* use more efficient line-bufferend mode for log output (instead of unbuffered mode)
 
 
