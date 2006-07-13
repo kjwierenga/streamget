@@ -202,9 +202,9 @@ static int sg_open_logfile(StreamgetOptions* options)
   }
 
   /* set unbuffered mode */
-  (void)setbuf(options->log, NULL);
-  (void)setbuf(stdout, NULL);
-  (void)setbuf(stderr, NULL);
+  (void)setvbuf(options->log, NULL, _IOLBF, 0);
+  (void)setvbuf(stdout, NULL, _IOLBF, 0);
+  (void)setvbuf(stderr, NULL, _IOLBF, 0);
   
   /* redirect stdin, stdout and stderr to logfile */
   for (i = 0; i < 3; ++i) {
