@@ -41,22 +41,35 @@
 #include "svnrev.h"
 #include "config.h"
 
+#define MAXTIMESTR 32
+
+#define GETTIMESTR \
+time_t _now_ = time(0); char _timestr_[MAXTIMESTR]; \
+(void)strftime(_timestr_, MAXTIMESTR, "%b %d %H:%M:%S ", localtime(&_now_));
+
 /* VERBOSE macro */
-#define VERBOSE1(stream, format, arg1) \
-do { \
-if (g_options.verbose > 0) { fprintf(stream, (format), (arg1)); } \
+#define LOGINFO1(stream, format, arg1)							\
+do {											\
+GETTIMESTR										\
+if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1)); }	\
 } while (0)
-#define VERBOSE2(stream, format, arg1, arg2) \
-do { \
-if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2)); } \
+
+#define LOGINFO2(stream, format, arg1, arg2)							\
+GETTIMESTR											\
+do {												\
+if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2)); }	\
 } while (0)
-#define VERBOSE3(stream, format, arg1, arg2, arg3) \
-do { \
-if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2), (arg3)); } \
+
+#define LOGINFO3(stream, format, arg1, arg2, arg3)							\
+GETTIMESTR												\
+do {													\
+if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3)); }	\
 } while (0)
-#define VERBOSE4(stream, format, arg1, arg2, arg3, arg4) \
-do { \
-if (g_options.verbose > 0) { fprintf(stream, (format), (arg1), (arg2), (arg3), (arg4)); } \
+
+#define LOGINFO4(stream, format, arg1, arg2, arg3, arg4)							\
+do {														\
+GETTIMESTR													\
+if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3), (arg4)); }	\
 } while (0)
 
 /* local definitions */
@@ -159,20 +172,20 @@ void print_options(StreamgetOptions* options)
 {
   if (!options) return;
 
-  VERBOSE1(stdout, "url                : %s\n", options->url);
-  VERBOSE1(stdout, "output             : %s\n", options->output);
-  VERBOSE1(stdout, "log                : %s\n", options->logname ? options->logname : "<not set>");
-  VERBOSE1(stdout, "time-limit         : %d seconds\n", options->time_limit);
-  VERBOSE1(stdout, "time-from-connect  : %s\n", options->time_from_connect ? "yes" : "no");
-  VERBOSE1(stdout, "connect-timeout    : %d seconds\n", options->connect_timeout);
-  VERBOSE1(stdout, "connect-period     : %d seconds\n", options->connect_period);
-  VERBOSE1(stdout, "connect-countdown  : %d seconds\n", options->connect_countdown);
-  VERBOSE1(stdout, "reconnect-timeout  : %d seconds\n", options->reconnect_timeout);
-  VERBOSE1(stdout, "reconnect-period   : %d seconds\n", options->reconnect_period);
-  VERBOSE1(stdout, "reconnect-countdown: %d seconds\n", options->reconnect_countdown);
-  VERBOSE1(stdout, "progress           : %s\n", options->progress ? "yes" : "no");
-  VERBOSE1(stdout, "verbose            : %d (level)\n", options->verbose);
-  VERBOSE1(stdout, "daemonize          : %s\n", options->daemonize ? "yes" : "no");
+  LOGINFO1(stdout, "url                : %s\n", options->url);
+  LOGINFO1(stdout, "output             : %s\n", options->output);
+  LOGINFO1(stdout, "log                : %s\n", options->logname ? options->logname : "<not set>");
+  LOGINFO1(stdout, "time-limit         : %d seconds\n", options->time_limit);
+  LOGINFO1(stdout, "time-from-connect  : %s\n", options->time_from_connect ? "yes" : "no");
+  LOGINFO1(stdout, "connect-timeout    : %d seconds\n", options->connect_timeout);
+  LOGINFO1(stdout, "connect-period     : %d seconds\n", options->connect_period);
+  LOGINFO1(stdout, "connect-countdown  : %d seconds\n", options->connect_countdown);
+  LOGINFO1(stdout, "reconnect-timeout  : %d seconds\n", options->reconnect_timeout);
+  LOGINFO1(stdout, "reconnect-period   : %d seconds\n", options->reconnect_period);
+  LOGINFO1(stdout, "reconnect-countdown: %d seconds\n", options->reconnect_countdown);
+  LOGINFO1(stdout, "progress           : %s\n", options->progress ? "yes" : "no");
+  LOGINFO1(stdout, "verbose            : %d (level)\n", options->verbose);
+  LOGINFO1(stdout, "daemonize          : %s\n", options->daemonize ? "yes" : "no");
 }
 
 static void sg_reset_countdown(StreamgetOptions* options)
@@ -247,10 +260,11 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       { "daemonize",         no_argument,       0, 'd' },
       { "verbose",           no_argument,       0, 'v' },
       { "help",              no_argument,       0, 'h' },
+      { "version",           no_argument,       0, 'V' },
       { 0, 0, 0, 0 },
     };
 
-    c = getopt_long(argc, argv, "u:o:l:s:xc:t:r:e:pdvh",
+    c = getopt_long(argc, argv, "u:o:l:s:xc:t:r:e:pdvhV",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -278,18 +292,34 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
     case 'c':
       options->connect_timeout = abs(atoi(optarg));
+      if (options->connect_timeout <= 0) {
+	fprintf(stderr, "Error: invalid value for 'connect-timeout': %d\n", options->connect_timeout);
+	retval=0;
+      }
       break;
 
     case 't':
       options->connect_period = abs(atoi(optarg));
+      if (options->connect_period <= 0) {
+	fprintf(stderr, "Error: invalid value for 'connect-period': %d\n", options->connect_period);
+	retval=0;
+      }
       break;
       
     case 'r':
       options->reconnect_timeout = abs(atoi(optarg));
+      if (options->reconnect_timeout <= 0) {
+	fprintf(stderr, "Error: invalid value for 'reconnect-timeout': %d\n", options->reconnect_timeout);
+	retval=0;
+      }
       break;
 
     case 'e':
       options->reconnect_period = abs(atoi(optarg));
+      if (options->reconnect_period <= 0) {
+	fprintf(stderr, "Error: invalid value for 'reconnect-period': %d\n", options->reconnect_period);
+	retval=0;
+      }
       break;
 
     case 'p':
@@ -310,13 +340,18 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       exit(EXIT_SUCCESS);
       break;
 
+    case 'V':
+      fprintf(stdout, "streamget " VERSION " (Rev " SVN_REVSTR ")\n");
+      exit(EXIT_SUCCESS);
+      break;
+
     case ':':
-      fprintf(stderr, "Error: missing value for option '%s'\n\n", argv[optind-1]);
+      fprintf(stderr, "Error: missing value for option '%s'\n", argv[optind-1]);
       retval=0;
       break;
 
     default:
-      fprintf(stderr, "Error: getopt returned unrecognised character code 0%o\n\n", c);
+      fprintf(stderr, "Error: getopt returned unrecognised character code 0%o\n", c);
       retval=0;
       break;
     }
@@ -336,7 +371,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
     while (optind < argc) {
       fprintf (stderr, "%s", argv[optind++]);
     }
-    fprintf(stderr, "\n\n");
+    fprintf(stderr, "\n");
   }
 
   return retval;
@@ -344,21 +379,22 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
 void sg_usage(FILE* ostream)
 {
-  fprintf(ostream, "streamget " VERSION " (Rev " SVN_REVSTR ")\n\
-    --url              |-u =URL       # URL to get\n\
-    --output           |-o =FILENAME  # file to append output to\n\
-   [--log              |-l =FILENAME] # output logging to this file, raise verbosity level by 1\n\
-   [--time-limit       |-s =4*3600]   # in secs, limit recording time, -1=infinte)\n\
-   [--time-from-connect|-x]           # start the time-limit timer when first connected\n\
+  fprintf(ostream, "\nstreamget " VERSION " (Rev " SVN_REVSTR ")\n\
+    --url              |-u URL       # URL to get\n\
+    --output           |-o FILENAME  # file to append output to\n\
+   [--log              |-l FILENAME] # output logging to this file, raise verbosity level by 1\n\
+   [--time-limit       |-s 4*3600]   # in secs, limit recording time, -1=infinte)\n\
+   [--time-from-connect|-x]          # start the time-limit timer when first connected\n\
                                         default is to start timer when the program starts\n\
-   [--connect-timeout  |-c =20]       # in secs, time between initial connect attempts)\n\
-   [--connect-period   |-t =600]      # in secs, total period to try to connect, default is infinte)\n\
-   [--reconnect-timeout|-r =1]        # in secs, time between reconnect attempts)\n\
-   [--reconnect-retries|-e =600]      # in secs, total period to try to connect, default is infinte)\n\
-   [--progress         | -p]          # show progress meter\n\
-   [--daemonize        | -d]          # start the process in the background\n\
-   [--verbose          | -v]          # increase verbosity level by 1,2, etc e.g. -v, -vv, -vvv, etc.\n\
-   [--help]                           # this help text\n\
+   [--connect-timeout  |-c 20]       # in secs, time between initial connect attempts)\n\
+   [--connect-period   |-t 600]      # in secs, total period to try to connect, default is infinte)\n\
+   [--reconnect-timeout|-r 1]        # in secs, time between reconnect attempts)\n\
+   [--reconnect-retries|-e 600]      # in secs, total period to try to connect, default is infinte)\n\
+   [--progress         | -p]         # show progress meter\n\
+   [--daemonize        | -d]         # start the process in the background\n\
+   [--verbose          | -v]         # increase verbosity level by 1,2, etc e.g. -v, -vv, -vvv, etc.\n\
+   [--help             | -h]         # this help text\n\
+   [--version          | -V]         # print version of the program\n\
 ");
 }
 
@@ -369,7 +405,7 @@ static void sg_alrm(int signo)
 {
   if (g_options.verbose > 0) {
     time_t now = time(0);
-    VERBOSE2(stdout, "\nTime limit of %d seconds expired at %s",
+    LOGINFO2(stdout, "\nTime limit of %d seconds expired at %s",
 	     g_options.time_limit, ctime(&now));
     fsync(fileno(stdout));
   }
@@ -419,11 +455,15 @@ int sg_mainloop(void)
   int nwritten     = 0; /* total written bytes written to file */
   int nwritten_now = 0; /* bytes written in one iteration of the loop */
   char buffer[BUFFERSIZE];
+  
+  /* defined valid states */
+  enum { IDLE, CONNECTING, CONNECTED, RECONNECTING, RECONNECTED, DONE };
+  int state = IDLE;
 
   /* Start time-limit timer, if required */
   if (!g_options.time_from_connect) {
     time_t now = time(0) + g_options.time_limit;
-    VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
+    LOGINFO2(stdout, "Time limit set to %d seconds, expires at %s",
 	     g_options.time_limit, ctime(&now));
     (void)sg_set_alarm(g_options.time_limit);
   }
@@ -452,12 +492,15 @@ int sg_mainloop(void)
 
       /* set alarm for time limit when first data is written */
       if (nread > 0) {
-	time_t now = time(0);
-	VERBOSE3(stdout, "Stream '%s' %s %s",
-		 g_options.url, nwritten ? "reconnected" : "active", ctime(&now));
+	LOGINFO2(stdout, "Stream '%s' %s.\n", g_options.url, nwritten ? "reconnected" : "active");
+
+	/* update state */
+	if (0 == nwritten) state = CONNECTED;
+	else               state = RECONNECTED;
+
 	sg_reset_countdown(&g_options);
 
-	if (0 == nwritten) {
+	if (CONNECTED == state) {
 
 	  /*
 	   * Open output file late (when first data is about to be written,
@@ -465,7 +508,7 @@ int sg_mainloop(void)
 	   */
 	  outf = fopen(g_options.output, "a");
 	  if(!outf) {
-	    fprintf(stderr, "Error: couldn't open output file '%s'\n%s\n",
+	    fprintf(stderr, "Error: couldn't open output file '%s'\n%s.\n",
 		    g_options.output, strerror(errno));
 	    retval = 2;
 	    goto exit;
@@ -473,8 +516,8 @@ int sg_mainloop(void)
 
 	  /* start time-limit timer if required */
 	  if (g_options.time_from_connect) {
-	    now += g_options.time_limit;
-	    VERBOSE2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
+	    time_t now = time(0) + g_options.time_limit;
+	    LOGINFO2(stdout, "Starting time-limit timer of %d seconds, will expire at %s.",
 		     g_options.time_limit, ctime(&now));
 	    (void)sg_set_alarm(g_options.time_limit);
 	  }
@@ -483,7 +526,7 @@ int sg_mainloop(void)
 
       while (nread) {
 	if (nread != (nwritten_now = fwrite(buffer, 1, nread, outf))) {
-	  VERBOSE2(stdout, "Error writing to file '%s' : %s.\n",
+	  LOGINFO2(stdout, "Error writing to file '%s' : %s.\n",
 		  g_options.output, strerror(errno));
 	  fprintf(stderr, "Error writing to file '%s': %s.\n",
 		  g_options.output, strerror(errno));
@@ -497,25 +540,33 @@ int sg_mainloop(void)
 
     if (*countdown < 0 || --*countdown > 0) {
       if (nwritten <= 0) {
-	time_t now = time(0);
-	VERBOSE4(stdout, "Stream '%s' not active at %sNext attempt (%d) in %d seconds.\n",
-		 g_options.url, ctime(&now), *countdown, g_options.connect_timeout);
+	if (CONNECTING != state) {
+	  LOGINFO1(stdout, "Stream '%s' not active.\n", g_options.url);
+	}
+	/* update state */
+	state = CONNECTING;
 	sg_sleep(g_options.connect_timeout);
       } else {
 	countdown = &g_options.reconnect_countdown;
-	VERBOSE2(stdout, "Lost connection. Reconnect attempt (%d) in %d seconds.\n",
-		 *countdown, g_options.reconnect_timeout);
+	if (RECONNECTING != state) {
+	  LOGINFO2(stdout, "Lost connection. Reconnecting...\n",
+		   *countdown, g_options.reconnect_timeout);
+	}
+	/* update state */
+	state = RECONNECTING;
 	sg_sleep(g_options.reconnect_timeout);
       }
 
     } else {
 
       if (nwritten <= 0) {
-	VERBOSE2(stdout, "Connect period of %d seconds expired.\n"
-		 "Failed to open URL '%s'\n", g_options.connect_period, g_options.url);
+	LOGINFO2(stdout, "Connect period of %d seconds expired.\n"
+		 "Failed to open URL '%s'.\n", g_options.connect_period, g_options.url);
+	state = DONE;
       } else {
-	VERBOSE2(stdout, "Reconnect period of %d seconds expired.\n"
-		 "Failed to open URL '%s'\n", g_options.reconnect_period, g_options.url);
+	LOGINFO2(stdout, "Reconnect period of %d seconds expired.\n"
+		 "Failed to open URL '%s'.\n", g_options.reconnect_period, g_options.url);
+	state = DONE;
       }
 
       break; // stop recording
@@ -523,8 +574,10 @@ int sg_mainloop(void)
   }
 
   /* close output file */
-  fclose(outf);
-  outf = NULL;
+  if (outf) {
+    fclose(outf);
+    outf = NULL;
+  }
 
   /* close log output */
   if (g_options.log) {
@@ -554,12 +607,12 @@ int main(int argc, char *argv[])
   }
 
   if (!g_options.url) {
-    fprintf(stderr, "Error: no URL specified.\n\n");
+    fprintf(stderr, "Error: no URL specified.\n");
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
   if (!g_options.output) {
-    fprintf(stderr, "Error: no output file specified.\n\n");
+    fprintf(stderr, "Error: no output file specified.\n");
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }

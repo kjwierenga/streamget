@@ -1,4 +1,14 @@
-2006-07-13  Klaas Jan Wierenga  <k.j.wierenga@www.audioserver.nl>
+2006-07-17 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.3
+	* unify log messages, add timestamp to log messages
+	* prevent repeated output of same log message
+	* added --version|-V option
+	* fixed SEGV on closing output file when it wasn't opened in the first place
+	* stricter checking on passed connect/reconnect options (should be >0)
+	* enabled CURLOPT_FAILONERROR to prevent error ending up in mp3 output
+
+2006-07-13  Klaas Jan Wierenga  <k.j.wierenga@audioserver.nl>
 
 	* version 1.2
 	* open output file after first succesful read

@@ -283,8 +283,9 @@ url_fopen(char *url,const char *operation, char *useragent)
 	  curl_easy_setopt(file->handle.curl, CURLOPT_USERAGENT, useragent);
 	}
 	curl_easy_setopt(file->handle.curl, CURLOPT_STDERR, stdout); /* send verbose and progress to stdout */
+	curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1); /* fail  on error codes > 300 */
+
 #if 0
-	curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1);    /* fail  on error codes > 300 */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FRESH_CONNECT, 1);  /* new connection every time */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FORBID_REUSE, 1);   /* don't reuse existing connections */
 #endif
