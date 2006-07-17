@@ -351,7 +351,8 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       break;
 
     default:
-      fprintf(stderr, "Error: getopt returned unrecognised character code 0%o\n", c);
+      fprintf(stderr, "Error: unknown option '%s'\n", argv[optind-1]);
+      /*getopt returned unrecognised character code 0%o\n", c);*/
       retval=0;
       break;
     }

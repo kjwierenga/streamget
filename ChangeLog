@@ -7,6 +7,7 @@
 	* fixed SEGV on closing output file when it wasn't opened in the first place
 	* stricter checking on passed connect/reconnect options (should be >0)
 	* enabled CURLOPT_FAILONERROR to prevent error ending up in mp3 output
+	* better error message on unknown option
 
 2006-07-13  Klaas Jan Wierenga  <k.j.wierenga@audioserver.nl>
 
