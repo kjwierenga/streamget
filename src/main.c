@@ -406,7 +406,9 @@ static void sg_alrm(int signo)
 {
   if (g_options.verbose > 0) {
     time_t now = time(0);
-    LOGINFO2(stdout, "\nTime limit of %d seconds expired at %s",
+
+    /* \n omitted intentionally, provided by ctime() */
+    LOGINFO2(stdout, "Time limit of %d seconds expired at %s",
 	     g_options.time_limit, ctime(&now));
     fsync(fileno(stdout));
   }
@@ -464,6 +466,8 @@ int sg_mainloop(void)
   /* Start time-limit timer, if required */
   if (!g_options.time_from_connect) {
     time_t now = time(0) + g_options.time_limit;
+
+    /* \n omitted intentionally, provided by ctime() */
     LOGINFO2(stdout, "Time limit set to %d seconds, expires at %s",
 	     g_options.time_limit, ctime(&now));
     (void)sg_set_alarm(g_options.time_limit);
@@ -518,7 +522,9 @@ int sg_mainloop(void)
 	  /* start time-limit timer if required */
 	  if (g_options.time_from_connect) {
 	    time_t now = time(0) + g_options.time_limit;
-	    LOGINFO2(stdout, "Starting time-limit timer of %d seconds, will expire at %s.",
+
+	    /* \n omitted intentionally, provided by ctime() */
+	    LOGINFO2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
 		     g_options.time_limit, ctime(&now));
 	    (void)sg_set_alarm(g_options.time_limit);
 	  }
@@ -561,11 +567,11 @@ int sg_mainloop(void)
     } else {
 
       if (nwritten <= 0) {
-	LOGINFO2(stdout, "Connect period of %d seconds expired.\n"
+	LOGINFO2(stdout, "Connect period of %d seconds expired. "
 		 "Failed to open URL '%s'.\n", g_options.connect_period, g_options.url);
 	state = DONE;
       } else {
-	LOGINFO2(stdout, "Reconnect period of %d seconds expired.\n"
+	LOGINFO2(stdout, "Reconnect period of %d seconds expired. "
 		 "Failed to open URL '%s'.\n", g_options.reconnect_period, g_options.url);
 	state = DONE;
       }
