@@ -556,7 +556,7 @@ int sg_mainloop(void)
       } else {
 	countdown = &g_options.reconnect_countdown;
 	if (RECONNECTING != state) {
-	  LOGINFO2(stdout, "Lost connection. Reconnecting...\n",
+	  LOGINFO2(stdout, "Lost connection. countdown=%d, timeout=%d, Reconnecting...\n",
 		   *countdown, g_options.reconnect_timeout);
 	}
 	/* update state */
