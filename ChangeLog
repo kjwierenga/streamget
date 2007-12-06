@@ -1,3 +1,8 @@
+2007-12-06 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+	* version 1.4
+	* support compilation on OS X
+	* add --start-callback-url called when recording is started
+	* add --stop-callback-url called when recording is stopped
 2006-07-17 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.3
