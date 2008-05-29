@@ -26,6 +26,9 @@
  */
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -77,12 +80,12 @@ if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (a
 #define SVNDATE     "$Date$"
 #define SVNREVISION "$Revision$";
 
-#define BUFFERSIZE                (8 * 1024) /* read/write in these chunks */
-#define DEFAULT_TIME_LIMIT        (4 * 3600) /* (sec) four hours */
-#define DEFAULT_CONNECT_TIMEOUT   (20)       /* (sec) twenty seconds */
-#define DEFAULT_CONNECT_PERIOD    (-1)       /* (sec) -1 means inifinite */
-#define DEFAULT_RECONNECT_TIMEOUT (1)        /* (sec) 1 second */
-#define DEFAULT_RECONNECT_PERIOD  (-1)       /* (sec) -1 means infinite */
+#define BUFFERSIZE                (64 * 1024) /* read/write in these chunks */
+#define DEFAULT_TIME_LIMIT        (4 * 3600)  /* (sec) four hours */
+#define DEFAULT_CONNECT_TIMEOUT   (20)        /* (sec) twenty seconds */
+#define DEFAULT_CONNECT_PERIOD    (-1)        /* (sec) -1 means inifinite */
+#define DEFAULT_RECONNECT_TIMEOUT (1)         /* (sec) 1 second */
+#define DEFAULT_RECONNECT_PERIOD  (-1)        /* (sec) -1 means infinite */
 
 /* local typedefs */
 typedef struct {
@@ -453,7 +456,7 @@ int sg_mainloop(void)
 {
   int retval       = 0; /* assume success */
   URL_FILE *handle = NULL;
-  FILE *outf       = NULL;
+  int outfd        = -1;
   int nread        = 0;
   int nwritten     = 0; /* total written bytes written to file */
   int nwritten_now = 0; /* bytes written in one iteration of the loop */
@@ -511,8 +514,8 @@ int sg_mainloop(void)
 	   * Open output file late (when first data is about to be written,
 	   * to prevent creating an empty file when the source is not yet active.
 	   */
-	  outf = fopen(g_options.output, "a");
-	  if(!outf) {
+	  outfd = open(g_options.output, O_CREAT | O_WRONLY | O_APPEND, 00666);
+	  if(outfd < 0) {
 	    fprintf(stderr, "Error: couldn't open output file '%s'\n%s.\n",
 		    g_options.output, strerror(errno));
 	    retval = 2;
@@ -532,7 +535,7 @@ int sg_mainloop(void)
       }
 
       while (nread) {
-	if (nread != (nwritten_now = fwrite(buffer, 1, nread, outf))) {
+	if (nread != (nwritten_now = write(outfd, buffer, nread))) {
 	  LOGINFO2(stdout, "Error writing to file '%s' : %s.\n",
 		  g_options.output, strerror(errno));
 	  fprintf(stderr, "Error writing to file '%s': %s.\n",
@@ -556,7 +559,7 @@ int sg_mainloop(void)
       } else {
 	countdown = &g_options.reconnect_countdown;
 	if (RECONNECTING != state) {
-	  LOGINFO2(stdout, "Lost connection. Reconnecting...\n",
+	  LOGINFO2(stdout, "Lost connection. Reconnecting (count=%d, timeout=%d)...\n",
 		   *countdown, g_options.reconnect_timeout);
 	}
 	/* update state */
@@ -581,9 +584,9 @@ int sg_mainloop(void)
   }
 
   /* close output file */
-  if (outf) {
-    fclose(outf);
-    outf = NULL;
+  if (outfd > 0) {
+    close(outfd);
+    outfd = -1;
   }
 
   /* close log output */
@@ -594,7 +597,7 @@ int sg_mainloop(void)
 
  exit:
   if (handle)        url_fclose(handle);
-  if (outf)          fclose(outf);
+  if (outfd > 0)     close(outfd);
   if (g_options.log) fclose(g_options.log);
   return retval;
 }

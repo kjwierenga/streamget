@@ -1,3 +1,17 @@
+2008-05-29 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.5
+	* improved efficiency by increasing buffer size from 8K to 64K
+	  to reduce number of writes by 75%
+	* improved performance by replacing fwrite by write
+	* before these changes io-wait was 59% and DSK busy 98%
+	* after these changes io-wait is 4% and DSK busy 6%
+	
+2006-03-10 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.4
+	* improved logging
+	
 2006-07-17 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.3
