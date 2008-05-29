@@ -35,7 +35,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <time.h>
-#include <curl/curl.h>
 
 #include <url_fopen.h>
 #include <daemonize.h>
@@ -90,12 +89,6 @@ typedef struct {
 
   /* URL from which to read stream */
   char* url;
-
-  /* callback URL to call when recording is started */
-  char* start_callback_url;
-
-  /* callback URL to call when recording is stopped */
-  char* stop_callback_url;
 
   /* name of the output file */
   char* output;
@@ -159,8 +152,6 @@ static char* g_useragent = "Streamget/" VERSION " (Rev " SVN_REVSTR ")";
 /* global variable to hold options */
 static StreamgetOptions g_options = {
   NULL, /* no URL specified */
-  NULL, /* no start-callback-url specified */
-  NULL, /* no stop-callback-url specified */
   NULL, /* no output FILENAME specified */
   NULL, /* no logname set */
   NULL, /* no logging */
@@ -183,8 +174,6 @@ void print_options(StreamgetOptions* options)
 
   LOGINFO1(stdout, "url                : %s\n", options->url);
   LOGINFO1(stdout, "output             : %s\n", options->output);
-  LOGINFO1(stdout, "start-callback-url : %s\n", options->start_callback_url);
-  LOGINFO1(stdout, "stop-callback-url  : %s\n", options->stop_callback_url);
   LOGINFO1(stdout, "log                : %s\n", options->logname ? options->logname : "<not set>");
   LOGINFO1(stdout, "time-limit         : %d seconds\n", options->time_limit);
   LOGINFO1(stdout, "time-from-connect  : %s\n", options->time_from_connect ? "yes" : "no");
@@ -217,11 +206,7 @@ static int sg_open_logfile(StreamgetOptions* options)
 
   if (!options || !options->logname) return 0;
 
-  if (!strncmp(options->logname, "-", 1))
-	options->log = fdopen(fileno(stdout), "w");
-  else
-  	options->log = fopen(options->logname, "a");
-
+  options->log = fopen(options->logname, "a");
   if (!options->log) {
     fprintf(stderr, "Error: couldn't open log file '%s'\n%s\n",
 	    options->logname, strerror(errno));
@@ -262,22 +247,20 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
     int option_index = 0;
 
     static struct option long_options[] = {
-      { "url",                required_argument, 0, 'u' },
-	  { "start-callback-url", required_argument, 0, 'y' },
-	  { "stop-callback-url",  required_argument, 0, 'z' },
-      { "output",             required_argument, 0, 'o' },
-      { "log",                required_argument, 0, 'l' },
-      { "time-limit",         required_argument, 0, 's' },
-      { "time-from-connect",  no_argument,       0, 'x' },
-      { "connect-timeout",    required_argument, 0, 'c' },
-      { "connect-period",     required_argument, 0, 't' },
-      { "reconnect-timeout",  required_argument, 0, 'r' },
-      { "reconnect-period",   required_argument, 0, 'e' },
-      { "progress",           no_argument,       0, 'p' },
-      { "daemonize",          no_argument,       0, 'd' },
-      { "verbose",            no_argument,       0, 'v' },
-      { "help",               no_argument,       0, 'h' },
-      { "version",            no_argument,       0, 'V' },
+      { "url",               required_argument, 0, 'u' },
+      { "output",            required_argument, 0, 'o' },
+      { "log",               required_argument, 0, 'l' },
+      { "time-limit",        required_argument, 0, 's' },
+      { "time-from-connect", no_argument,       0, 'x' },
+      { "connect-timeout",   required_argument, 0, 'c' },
+      { "connect-period",    required_argument, 0, 't' },
+      { "reconnect-timeout", required_argument, 0, 'r' },
+      { "reconnect-period",  required_argument, 0, 'e' },
+      { "progress",          no_argument,       0, 'p' },
+      { "daemonize",         no_argument,       0, 'd' },
+      { "verbose",           no_argument,       0, 'v' },
+      { "help",              no_argument,       0, 'h' },
+      { "version",           no_argument,       0, 'V' },
       { 0, 0, 0, 0 },
     };
 
@@ -289,14 +272,6 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
     case 'u':
       options->url = optarg;
       break;
-
-	case 'y':
-	  options->start_callback_url = optarg;
-	  break;
-	
-	case 'z':
-	  options->stop_callback_url = optarg;
-	  break;
 
     case 'o':
       options->output = optarg;
@@ -406,23 +381,21 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 void sg_usage(FILE* ostream)
 {
   fprintf(ostream, "\nstreamget " VERSION " (Rev " SVN_REVSTR ")\n\
-    --url                |-u URL       # URL to get\n\
-    --output             |-o FILENAME  # file to append output to\n\
-   [--start-callback-url |-y URL]      # URL to POST to when the recording starts\n\
-   [--stop-callback-url  |-z URL]      # URL to PUT  to when the recording stops\n\
-   [--log                |-l FILENAME] # output logging to this file, raise verbosity level by 1\n\
-   [--time-limit         |-s 4*3600]   # in secs, limit recording time, -1=infinte)\n\
-   [--time-from-connect  |-x]          # start the time-limit timer when first connected\n\
+    --url              |-u URL       # URL to get\n\
+    --output           |-o FILENAME  # file to append output to\n\
+   [--log              |-l FILENAME] # output logging to this file, raise verbosity level by 1\n\
+   [--time-limit       |-s 4*3600]   # in secs, limit recording time, -1=infinte)\n\
+   [--time-from-connect|-x]          # start the time-limit timer when first connected\n\
                                         default is to start timer when the program starts\n\
-   [--connect-timeout    |-c 20]       # in secs, time between initial connect attempts)\n\
-   [--connect-period     |-t 600]      # in secs, total period to try to connect, default is infinte)\n\
-   [--reconnect-timeout  |-r 1]        # in secs, time between reconnect attempts)\n\
-   [--reconnect-retries  |-e 600]      # in secs, total period to try to connect, default is infinte)\n\
-   [--progress           | -p]         # show progress meter\n\
-   [--daemonize          | -d]         # start the process in the background\n\
-   [--verbose            | -v]         # increase verbosity level by 1,2, etc e.g. -v, -vv, -vvv, etc.\n\
-   [--help               | -h]         # this help text\n\
-   [--version            | -V]         # print version of the program\n\
+   [--connect-timeout  |-c 20]       # in secs, time between initial connect attempts)\n\
+   [--connect-period   |-t 600]      # in secs, total period to try to connect, default is infinte)\n\
+   [--reconnect-timeout|-r 1]        # in secs, time between reconnect attempts)\n\
+   [--reconnect-retries|-e 600]      # in secs, total period to try to connect, default is infinte)\n\
+   [--progress         | -p]         # show progress meter\n\
+   [--daemonize        | -d]         # start the process in the background\n\
+   [--verbose          | -v]         # increase verbosity level by 1,2, etc e.g. -v, -vv, -vvv, etc.\n\
+   [--help             | -h]         # this help text\n\
+   [--version          | -V]         # print version of the program\n\
 ");
 }
 
@@ -476,53 +449,6 @@ int sg_sleep(time_t seconds)
   return ret;
 }
 
-void sg_get_url(char* url)
-{
-	CURL* handle = curl_easy_init();
-	if (handle) {
-		int code = CURLE_OK;
-		long response_code = 0;
-		
-		if (CURLE_OK != (code = curl_easy_setopt(handle, CURLOPT_URL, g_options.start_callback_url))) {
-			LOGINFO1(stdout, "CURL error: %s\n", curl_easy_strerror(code));
-		}
-		if (CURLE_OK != (code = curl_easy_perform(handle))) {
-			LOGINFO1(stdout, "CURL error: %s\n", curl_easy_strerror(code));
-		}
-		if (CURLE_OK != (code = curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response_code))) {
-			LOGINFO1(stdout, "CURL error: %s\n", curl_easy_strerror(code));
-		}
-		LOGINFO1(stdout, "%s", "\n");
-		if (200 != response_code) {
-			LOGINFO1(stdout, "Failed (code = %ld)\n", response_code);
-		} else {
-			LOGINFO1(stdout, "Callback OK (code = %ld)\n", response_code);
-		}
-		curl_easy_cleanup(handle);
-		/* handle now invalid */
-	}
-}
-
-int sg_start_callback(void)
-{
-	int ret = 0;
-	if (g_options.start_callback_url) {
-		LOGINFO1(stdout, "Start callback to '%s'\n", g_options.start_callback_url);
-		sg_get_url(g_options.start_callback_url);
-	}
-	return ret;
-}
-
-int sg_stop_callback(void)
-{
-	int ret = 0;
-	if (g_options.stop_callback_url) {
-		LOGINFO1(stdout, "Stop callback to '%s'\n", g_options.stop_callback_url);
-		sg_get_url(g_options.stop_callback_url);
-	}
-	return ret;
-}
-
 int sg_mainloop(void)
 {
   int retval       = 0; /* assume success */
@@ -574,12 +500,8 @@ int sg_mainloop(void)
 	LOGINFO2(stdout, "Stream '%s' %s.\n", g_options.url, nwritten ? "reconnected" : "active");
 
 	/* update state */
-	if (0 == nwritten) {
-		state = CONNECTED;
-		sg_start_callback();
-	} else {
-		state = RECONNECTED;
-	}
+	if (0 == nwritten) state = CONNECTED;
+	else               state = RECONNECTED;
 
 	sg_reset_countdown(&g_options);
 
@@ -634,8 +556,8 @@ int sg_mainloop(void)
       } else {
 	countdown = &g_options.reconnect_countdown;
 	if (RECONNECTING != state) {
-	  LOGINFO1(stdout, "Lost connection. timeout=%d, Reconnecting...\n",
-		   g_options.reconnect_timeout);
+	  LOGINFO2(stdout, "Lost connection. Reconnecting...\n",
+		   *countdown, g_options.reconnect_timeout);
 	}
 	/* update state */
 	state = RECONNECTING;
@@ -653,8 +575,6 @@ int sg_mainloop(void)
 		 "Failed to open URL '%s'.\n", g_options.reconnect_period, g_options.url);
 	state = DONE;
       }
-
-	  sg_stop_callback();
 
       break; // stop recording
     }

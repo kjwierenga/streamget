@@ -2,11 +2,6 @@
 # Run this to set up the build system: configure, makefiles, etc.
 # (based on the version in enlightenment's cvs)
 
-#
-# On OSX you should run this script like this:
-# LIBTOOLIZE=glibtoolize ./autogen.sh
-#
-
 package="streamget"
 
 olddir=`pwd`
@@ -75,10 +70,7 @@ if test -r Makefile.am; then
       }
 fi
 
-if test "$LIBTOOLIZE" = ""; then
-	LIBTOOLIZE=libtoolize
-fi
-($LIBTOOLIZE --version)  > /dev/null 2>&1 || {
+(libtoolize --version)  > /dev/null 2>&1 || {
 	echo
 	echo "You must have libtool installed to compile $package."
 	echo "Download the appropriate package for your system,"
@@ -102,8 +94,8 @@ fi
 echo "  autoheader"
 autoheader
 
-echo "  $LIBTOOLIZE --automake"
-$LIBTOOLIZE --automake --copy
+echo "  libtoolize --automake"
+libtoolize --automake --copy
 
 if test -n "$AUTOMAKE"; then
   echo "  $AUTOMAKE --add-missing --copy"
