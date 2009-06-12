@@ -1,3 +1,9 @@
+2009-06-12 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.6
+	* add file locking, to prevent two instances of streamget writing to the same output file
+	* svn:ignore generated files
+	
 2008-05-29 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.5

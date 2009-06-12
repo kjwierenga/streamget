@@ -4,6 +4,8 @@ bin_PROGRAMS = \
 	streamget
 
 streamget_SOURCES = \
+	lock.h \
+	lock.c \
 	daemonize.h \
 	daemonize.c \
 	url_fopen.h \

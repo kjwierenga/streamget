@@ -43,6 +43,7 @@
 #include <daemonize.h>
 #include "svnrev.h"
 #include "config.h"
+#include "lock.h"
 
 #define MAXTIMESTR 32
 
@@ -51,6 +52,12 @@ time_t _now_ = time(0); char _timestr_[MAXTIMESTR]; \
 (void)strftime(_timestr_, MAXTIMESTR, "%b %d %H:%M:%S ", localtime(&_now_));
 
 /* VERBOSE macro */
+#define LOGINFO0(stream, format)							\
+do {											\
+GETTIMESTR										\
+if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_); }		\
+} while (0)
+
 #define LOGINFO1(stream, format, arg1)							\
 do {											\
 GETTIMESTR										\
@@ -516,8 +523,14 @@ int sg_mainloop(void)
 	   */
 	  outfd = open(g_options.output, O_CREAT | O_WRONLY | O_APPEND, 00666);
 	  if(outfd < 0) {
-	    fprintf(stderr, "Error: couldn't open output file '%s'\n%s.\n",
-		    g_options.output, strerror(errno));
+	    LOGINFO2(stdout, "Error: couldn't open output file '%s'\n%s.\n",
+		     g_options.output, strerror(errno));
+	    retval = 2;
+	    goto exit;
+	  }
+	  if (!lockfd(outfd)) {
+	    LOGINFO2(stdout, "Error: couldn't lock output file '%s'\n%s.\n",
+		     g_options.output, strerror(errno));
 	    retval = 2;
 	    goto exit;
 	  }
@@ -537,9 +550,7 @@ int sg_mainloop(void)
       while (nread) {
 	if (nread != (nwritten_now = write(outfd, buffer, nread))) {
 	  LOGINFO2(stdout, "Error writing to file '%s' : %s.\n",
-		  g_options.output, strerror(errno));
-	  fprintf(stderr, "Error writing to file '%s': %s.\n",
-		  g_options.output, strerror(errno));
+		   g_options.output, strerror(errno));
 	  retval = 4;
 	  goto exit;
 	}
@@ -583,21 +594,9 @@ int sg_mainloop(void)
     }
   }
 
-  /* close output file */
-  if (outfd > 0) {
-    close(outfd);
-    outfd = -1;
-  }
-
-  /* close log output */
-  if (g_options.log) {
-    fclose(g_options.log);
-    g_options.log = NULL;
-  }
-
  exit:
   if (handle)        url_fclose(handle);
-  if (outfd > 0)     close(outfd);
+  if (outfd > 0)     { unlockfd(outfd); close(outfd); }
   if (g_options.log) fclose(g_options.log);
   return retval;
 }
