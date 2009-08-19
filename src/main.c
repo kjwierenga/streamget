@@ -535,10 +535,10 @@ int sg_mainloop(void)
 	    goto exit;
 	  }
 	
-		/*
-		 * Signal parent that recording has started by sending the CONT signal
-		 */
-		kill(getppid(), SIGCONT);
+          /*
+	   * Signal parent that recording has started by sending the CONT signal
+	   */
+	  kill(getppid(), SIGCONT);
 
 	  /* start time-limit timer if required */
 	  if (g_options.time_from_connect) {
