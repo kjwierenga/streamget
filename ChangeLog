@@ -1,3 +1,9 @@
+2009-08-19 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.7
+        * send SIGCONT to parent process when actual recording starts (output file opened)
+          this signal can be caught in the parent process to trigger callbacks
+	
 2009-06-12 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.6
