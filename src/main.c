@@ -41,7 +41,7 @@
 
 #include <url_fopen.h>
 #include <daemonize.h>
-#include "svnrev.h"
+#include "git-ref.h"
 #include "config.h"
 #include "lock.h"
 
@@ -83,10 +83,6 @@ if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (a
 } while (0)
 
 /* local definitions */
-#define SVNID       "$Id$"
-#define SVNDATE     "$Date$"
-#define SVNREVISION "$Revision$";
-
 #define BUFFERSIZE                (64 * 1024) /* read/write in these chunks */
 #define DEFAULT_TIME_LIMIT        (4 * 3600)  /* (sec) four hours */
 #define DEFAULT_CONNECT_TIMEOUT   (20)        /* (sec) twenty seconds */
@@ -157,7 +153,7 @@ static int       sg_parse_options(int argc, char** argv, StreamgetOptions* optio
 static int       sg_mainloop(void);
 
 /* global variables */
-static char* g_useragent = "Streamget/" VERSION " (Rev " SVN_REVSTR ")";
+static char* g_useragent = "Streamget/" VERSION " (" GIT_REF ")";
 
 /* global variable to hold options */
 static StreamgetOptions g_options = {

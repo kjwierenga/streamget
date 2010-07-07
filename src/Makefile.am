@@ -13,11 +13,11 @@ streamget_SOURCES = \
 	main.c
 
 BUILT_SOURCES = \
-	svnrev.h
+	git-ref.h
 
-svnrev.h: main.c
-	svnrev $?
-
+git-ref.h: main.c
+	/bin/echo -n '#define GIT_REF ' > git-ref.h && cat ../.git/FETCH_HEAD | cut -f1 >> git-ref.h
+	
 CLEANFILES = $(BUILT_SOURCES)
 
 streamget_LDADD = @LIBCURL@
