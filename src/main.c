@@ -347,7 +347,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       break;
 
     case 'V':
-      fprintf(stdout, "streamget " VERSION " (Rev " SVN_REVSTR ")\n");
+      fprintf(stdout, "streamget " VERSION " (" GIT_REF ")\n");
       exit(EXIT_SUCCESS);
       break;
 
@@ -386,7 +386,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
 void sg_usage(FILE* ostream)
 {
-  fprintf(ostream, "\nstreamget " VERSION " (Rev " SVN_REVSTR ")\n\
+  fprintf(ostream, "\nstreamget " VERSION " (" GIT_REF ")\n\
     --url              |-u URL       # URL to get\n\
     --output           |-o FILENAME  # file to append output to\n\
    [--log              |-l FILENAME] # output logging to this file, raise verbosity level by 1\n\
