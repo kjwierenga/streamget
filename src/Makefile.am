@@ -18,7 +18,7 @@ BUILT_SOURCES = \
 GIT_REF = $(shell git rev-parse --verify `git symbolic-ref -q HEAD`)
 
 git-ref.h: FORCE
-	echo $(GIT_REF) > git-ref.h
+	echo "#define GIT_REF \"$(GIT_REF)\"" > git-ref.h
 	
 FORCE:
 	
