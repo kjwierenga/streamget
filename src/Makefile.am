@@ -14,9 +14,11 @@ streamget_SOURCES = \
 
 BUILT_SOURCES = \
 	git-ref.h
+	
+GIT_REF = $(shell git rev-parse --verify `git symbolic-ref -q HEAD`)
 
-git-ref.h: main.c FORCE
-	/bin/echo -n '#define GIT_REF "' > git-ref.h && cat ../.git/FETCH_HEAD | cut -f1 | tr \\n '"' >> git-ref.h
+git-ref.h: FORCE
+	echo $(GIT_REF) > git-ref.h
 	
 FORCE:
 	
