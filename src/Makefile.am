@@ -15,8 +15,10 @@ streamget_SOURCES = \
 BUILT_SOURCES = \
 	git-ref.h
 
-git-ref.h: main.c
-	/bin/echo -n '#define GIT_REF ' > git-ref.h && cat ../.git/FETCH_HEAD | cut -f1 >> git-ref.h
+git-ref.h: main.c FORCE
+	/bin/echo -n '#define GIT_REF "' > git-ref.h && cat ../.git/FETCH_HEAD | cut -f1 | tr \\n '"' >> git-ref.h
+	
+FORCE:
 	
 CLEANFILES = $(BUILT_SOURCES)
 
