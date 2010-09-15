@@ -1,3 +1,9 @@
+2010-09-15 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
+
+	* version 1.8
+	* Moved repository from private SVN repository to (private) github.com repository.
+	* Generate git sha in version string.
+
 2009-08-19 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.7

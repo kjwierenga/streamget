@@ -1,5 +1,5 @@
 Name:		streamget
-Version:	1.7
+Version:	1.8
 Release:	1
 Summary:	Robust stream recorder. Does automatic reconnect when stream is temporarily unavailable.
 Group:		Applications/Multimedia
