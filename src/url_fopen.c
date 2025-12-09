@@ -163,27 +163,42 @@ fill_buffer(URL_FILE *file, int want, int waittime)
         /* get file descriptors from the transfers */
         curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
 
-        rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-
-        switch (rc)
+        /* According to libcurl docs, maxfd can be -1 when using internal timers.
+         * In this case, we should sleep briefly and call curl_multi_perform. */
+        if (maxfd == -1)
         {
-        case -1:
-            /* select error */
-            break;
-
-        case 0:
-            break;
-
-        default:
-            /* timeout or readable/writable sockets */
-            /* note we *could* be more efficient and not wait for
-             * CURLM_CALL_MULTI_PERFORM to clear here and check it on re-entry
-             * but that gets messy */
+            /* No file descriptors, curl is using internal timers.
+             * Sleep for 100ms and let curl process. */
+            struct timeval wait = {0, 100000}; /* 100ms */
+            select(0, NULL, NULL, NULL, &wait);
             while (curl_multi_perform(multi_handle, &file->still_running) ==
                    CURLM_CALL_MULTI_PERFORM)
                 ;
+        }
+        else
+        {
+            rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
 
-            break;
+            switch (rc)
+            {
+            case -1:
+                /* select error */
+                break;
+
+            case 0:
+                break;
+
+            default:
+                /* timeout or readable/writable sockets */
+                /* note we *could* be more efficient and not wait for
+                 * CURLM_CALL_MULTI_PERFORM to clear here and check it on re-entry
+                 * but that gets messy */
+                while (curl_multi_perform(multi_handle, &file->still_running) ==
+                       CURLM_CALL_MULTI_PERFORM)
+                    ;
+
+                break;
+            }
         }
     } while (file->still_running && (file->buffer_pos < want));
     return 1;
