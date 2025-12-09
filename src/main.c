@@ -8,7 +8,7 @@
  * The program is usually started from cron at a specific time and continues
  * to record the stream for the specified time.
  *
- * Copyright (c) 2006 AUDIOserver.nl 
+ * Copyright (c) 2006 AUDIOserver.nl
  * Author: K.J. Wierenga <k.j.wierenga@audioserver.nl>
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
@@ -47,61 +47,83 @@
 
 #define MAXTIMESTR 32
 
-#define GETTIMESTR \
-time_t _now_ = time(0); char _timestr_[MAXTIMESTR]; \
-(void)strftime(_timestr_, MAXTIMESTR, "%b %d %H:%M:%S ", localtime(&_now_));
+#define GETTIMESTR            \
+  time_t _now_ = time(0);     \
+  char _timestr_[MAXTIMESTR]; \
+  (void)strftime(_timestr_, MAXTIMESTR, "%b %d %H:%M:%S ", localtime(&_now_));
 
 /* VERBOSE macro */
-#define LOGINFO0(stream, format)							\
-do {											\
-GETTIMESTR										\
-if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_); }		\
-} while (0)
+#define LOGINFO0(stream, format)                \
+  do                                            \
+  {                                             \
+    GETTIMESTR                                  \
+    if (g_options.verbose > 0)                  \
+    {                                           \
+      fprintf(stream, "%s " format, _timestr_); \
+    }                                           \
+  } while (0)
 
-#define LOGINFO1(stream, format, arg1)							\
-do {											\
-GETTIMESTR										\
-if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1)); }	\
-} while (0)
+#define LOGINFO1(stream, format, arg1)                  \
+  do                                                    \
+  {                                                     \
+    GETTIMESTR                                          \
+    if (g_options.verbose > 0)                          \
+    {                                                   \
+      fprintf(stream, "%s " format, _timestr_, (arg1)); \
+    }                                                   \
+  } while (0)
 
-#define LOGINFO2(stream, format, arg1, arg2)							\
-GETTIMESTR											\
-do {												\
-if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2)); }	\
-} while (0)
+#define LOGINFO2(stream, format, arg1, arg2)                    \
+  GETTIMESTR                                                    \
+  do                                                            \
+  {                                                             \
+    if (g_options.verbose > 0)                                  \
+    {                                                           \
+      fprintf(stream, "%s " format, _timestr_, (arg1), (arg2)); \
+    }                                                           \
+  } while (0)
 
-#define LOGINFO3(stream, format, arg1, arg2, arg3)							\
-GETTIMESTR												\
-do {													\
-if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3)); }	\
-} while (0)
+#define LOGINFO3(stream, format, arg1, arg2, arg3)                      \
+  GETTIMESTR                                                            \
+  do                                                                    \
+  {                                                                     \
+    if (g_options.verbose > 0)                                          \
+    {                                                                   \
+      fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3)); \
+    }                                                                   \
+  } while (0)
 
-#define LOGINFO4(stream, format, arg1, arg2, arg3, arg4)							\
-do {														\
-GETTIMESTR													\
-if (g_options.verbose > 0) { fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3), (arg4)); }	\
-} while (0)
+#define LOGINFO4(stream, format, arg1, arg2, arg3, arg4)                        \
+  do                                                                            \
+  {                                                                             \
+    GETTIMESTR                                                                  \
+    if (g_options.verbose > 0)                                                  \
+    {                                                                           \
+      fprintf(stream, "%s " format, _timestr_, (arg1), (arg2), (arg3), (arg4)); \
+    }                                                                           \
+  } while (0)
 
 /* local definitions */
-#define BUFFERSIZE                (64 * 1024) /* read/write in these chunks */
-#define DEFAULT_TIME_LIMIT        (4 * 3600)  /* (sec) four hours */
-#define DEFAULT_CONNECT_TIMEOUT   (20)        /* (sec) twenty seconds */
-#define DEFAULT_CONNECT_PERIOD    (-1)        /* (sec) -1 means inifinite */
-#define DEFAULT_RECONNECT_TIMEOUT (1)         /* (sec) 1 second */
-#define DEFAULT_RECONNECT_PERIOD  (-1)        /* (sec) -1 means infinite */
+#define BUFFERSIZE (64 * 1024)        /* read/write in these chunks */
+#define DEFAULT_TIME_LIMIT (4 * 3600) /* (sec) four hours */
+#define DEFAULT_CONNECT_TIMEOUT (20)  /* (sec) twenty seconds */
+#define DEFAULT_CONNECT_PERIOD (-1)   /* (sec) -1 means inifinite */
+#define DEFAULT_RECONNECT_TIMEOUT (1) /* (sec) 1 second */
+#define DEFAULT_RECONNECT_PERIOD (-1) /* (sec) -1 means infinite */
 
 /* local typedefs */
-typedef struct {
+typedef struct
+{
 
   /* URL from which to read stream */
-  char* url;
+  char *url;
 
   /* name of the output file */
-  char* output;
+  char *output;
 
   /* name and handle of the logfile */
-  char* logname;
-  FILE* log;
+  char *logname;
+  FILE *log;
 
   /* (sec) Time-limit in seconds */
   int time_limit;
@@ -121,7 +143,7 @@ typedef struct {
 
   /* countdown */
   int connect_countdown;
-  
+
   /* (sec) Time between reconnects if stream drops. */
   int reconnect_timeout;
 
@@ -143,40 +165,41 @@ typedef struct {
 } StreamgetOptions;
 
 /* local function */
-static void      sg_usage(FILE* ostream);
-static void      sg_alrm(int);
-static int       sg_sleep(time_t seconds);
-static int       sg_set_alarm(int timeout);
-static void      sg_reset_countdown(StreamgetOptions* options);
-static int       sg_open_logfile(StreamgetOptions* options);
-static int       sg_parse_options(int argc, char** argv, StreamgetOptions* options);
-static int       sg_mainloop(void);
+static void sg_usage(FILE *ostream);
+static void sg_alrm(int);
+static int sg_sleep(time_t seconds);
+static int sg_set_alarm(int timeout);
+static void sg_reset_countdown(StreamgetOptions *options);
+static int sg_open_logfile(StreamgetOptions *options);
+static int sg_parse_options(int argc, char **argv, StreamgetOptions *options);
+static int sg_mainloop(void);
 
 /* global variables */
-static char* g_useragent = "Streamget/" VERSION " (" GIT_REF ")";
+static char *g_useragent = "Streamget/" VERSION " (" GIT_REF ")";
 
 /* global variable to hold options */
 static StreamgetOptions g_options = {
-  NULL, /* no URL specified */
-  NULL, /* no output FILENAME specified */
-  NULL, /* no logname set */
-  NULL, /* no logging */
-  DEFAULT_TIME_LIMIT,
-  0, /* start time-limit timer when program starts */
-  DEFAULT_CONNECT_TIMEOUT,
-  DEFAULT_CONNECT_PERIOD,
-  0,
-  DEFAULT_RECONNECT_TIMEOUT,
-  DEFAULT_RECONNECT_PERIOD,
-  0,
-  0, /* don't show progress */
-  0, /* don't be verbose */
-  0, /* do not daemonize */
+    NULL, /* no URL specified */
+    NULL, /* no output FILENAME specified */
+    NULL, /* no logname set */
+    NULL, /* no logging */
+    DEFAULT_TIME_LIMIT,
+    0, /* start time-limit timer when program starts */
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_CONNECT_PERIOD,
+    0,
+    DEFAULT_RECONNECT_TIMEOUT,
+    DEFAULT_RECONNECT_PERIOD,
+    0,
+    0, /* don't show progress */
+    0, /* don't be verbose */
+    0, /* do not daemonize */
 };
 
-void print_options(StreamgetOptions* options)
+void print_options(StreamgetOptions *options)
 {
-  if (!options) return;
+  if (!options)
+    return;
 
   LOGINFO1(stdout, "url                : %s\n", options->url);
   LOGINFO1(stdout, "output             : %s\n", options->output);
@@ -194,28 +217,31 @@ void print_options(StreamgetOptions* options)
   LOGINFO1(stdout, "daemonize          : %s\n", options->daemonize ? "yes" : "no");
 }
 
-static void sg_reset_countdown(StreamgetOptions* options)
+static void sg_reset_countdown(StreamgetOptions *options)
 {
-  if (!options) return;
+  if (!options)
+    return;
 
   options->connect_countdown = (options->connect_period > 0
-				? options->connect_period / options->connect_timeout
-				: -1);
-  options->reconnect_countdown = (options->reconnect_period > 0 
-				  ? options->reconnect_period / options->reconnect_timeout
-				  : -1);
+                                    ? options->connect_period / options->connect_timeout
+                                    : -1);
+  options->reconnect_countdown = (options->reconnect_period > 0
+                                      ? options->reconnect_period / options->reconnect_timeout
+                                      : -1);
 }
 
-static int sg_open_logfile(StreamgetOptions* options)
+static int sg_open_logfile(StreamgetOptions *options)
 {
   int i = -1;
 
-  if (!options || !options->logname) return 0;
+  if (!options || !options->logname)
+    return 0;
 
   options->log = fopen(options->logname, "a");
-  if (!options->log) {
+  if (!options->log)
+  {
     fprintf(stderr, "Error: couldn't open log file '%s'\n%s\n",
-	    options->logname, strerror(errno));
+            options->logname, strerror(errno));
 
     return -2;
   }
@@ -224,16 +250,20 @@ static int sg_open_logfile(StreamgetOptions* options)
   (void)setvbuf(options->log, NULL, _IOLBF, 0);
   (void)setvbuf(stdout, NULL, _IOLBF, 0);
   (void)setvbuf(stderr, NULL, _IOLBF, 0);
-  
+
   /* redirect stdin, stdout and stderr to logfile */
-  for (i = 0; i < 3; ++i) {
-    for (;;) {
-      if (dup2(fileno(options->log), i) != -1) {
-	break;
+  for (i = 0; i < 3; ++i)
+  {
+    for (;;)
+    {
+      if (dup2(fileno(options->log), i) != -1)
+      {
+        break;
       }
-      if (errno != EINTR) {
-	fprintf(stderr, "dup2() failed for %d: %s", i, strerror(errno));
-	return -4;
+      if (errno != EINTR)
+      {
+        fprintf(stderr, "dup2() failed for %d: %s", i, strerror(errno));
+        return -4;
       }
     }
   }
@@ -241,40 +271,44 @@ static int sg_open_logfile(StreamgetOptions* options)
   return 0;
 }
 
-static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
+static int sg_parse_options(int argc, char **argv, StreamgetOptions *options)
 {
   int retval = 1;
   int c;
 
-  if (!options) return 0;
+  if (!options)
+    return 0;
 
-  opterr=0;
-  while (1) {
+  opterr = 0;
+  while (1)
+  {
     int option_index = 0;
 
     static struct option long_options[] = {
-      { "url",               required_argument, 0, 'u' },
-      { "output",            required_argument, 0, 'o' },
-      { "log",               required_argument, 0, 'l' },
-      { "time-limit",        required_argument, 0, 's' },
-      { "time-from-connect", no_argument,       0, 'x' },
-      { "connect-timeout",   required_argument, 0, 'c' },
-      { "connect-period",    required_argument, 0, 't' },
-      { "reconnect-timeout", required_argument, 0, 'r' },
-      { "reconnect-period",  required_argument, 0, 'e' },
-      { "progress",          no_argument,       0, 'p' },
-      { "daemonize",         no_argument,       0, 'd' },
-      { "verbose",           no_argument,       0, 'v' },
-      { "help",              no_argument,       0, 'h' },
-      { "version",           no_argument,       0, 'V' },
-      { 0, 0, 0, 0 },
+        {"url", required_argument, 0, 'u'},
+        {"output", required_argument, 0, 'o'},
+        {"log", required_argument, 0, 'l'},
+        {"time-limit", required_argument, 0, 's'},
+        {"time-from-connect", no_argument, 0, 'x'},
+        {"connect-timeout", required_argument, 0, 'c'},
+        {"connect-period", required_argument, 0, 't'},
+        {"reconnect-timeout", required_argument, 0, 'r'},
+        {"reconnect-period", required_argument, 0, 'e'},
+        {"progress", no_argument, 0, 'p'},
+        {"daemonize", no_argument, 0, 'd'},
+        {"verbose", no_argument, 0, 'v'},
+        {"help", no_argument, 0, 'h'},
+        {"version", no_argument, 0, 'V'},
+        {0, 0, 0, 0},
     };
 
     c = getopt_long(argc, argv, "u:o:l:s:xc:t:r:e:pdvhV",
-		    long_options, &option_index);
-    if (c == -1) break;
+                    long_options, &option_index);
+    if (c == -1)
+      break;
 
-    switch (c) {
+    switch (c)
+    {
     case 'u':
       options->url = optarg;
       break;
@@ -298,33 +332,37 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
 
     case 'c':
       options->connect_timeout = abs(atoi(optarg));
-      if (options->connect_timeout <= 0) {
-	fprintf(stderr, "Error: invalid value for 'connect-timeout': %d\n", options->connect_timeout);
-	retval=0;
+      if (options->connect_timeout <= 0)
+      {
+        fprintf(stderr, "Error: invalid value for 'connect-timeout': %d\n", options->connect_timeout);
+        retval = 0;
       }
       break;
 
     case 't':
       options->connect_period = abs(atoi(optarg));
-      if (options->connect_period <= 0) {
-	fprintf(stderr, "Error: invalid value for 'connect-period': %d\n", options->connect_period);
-	retval=0;
+      if (options->connect_period <= 0)
+      {
+        fprintf(stderr, "Error: invalid value for 'connect-period': %d\n", options->connect_period);
+        retval = 0;
       }
       break;
-      
+
     case 'r':
       options->reconnect_timeout = abs(atoi(optarg));
-      if (options->reconnect_timeout <= 0) {
-	fprintf(stderr, "Error: invalid value for 'reconnect-timeout': %d\n", options->reconnect_timeout);
-	retval=0;
+      if (options->reconnect_timeout <= 0)
+      {
+        fprintf(stderr, "Error: invalid value for 'reconnect-timeout': %d\n", options->reconnect_timeout);
+        retval = 0;
       }
       break;
 
     case 'e':
       options->reconnect_period = abs(atoi(optarg));
-      if (options->reconnect_period <= 0) {
-	fprintf(stderr, "Error: invalid value for 'reconnect-period': %d\n", options->reconnect_period);
-	retval=0;
+      if (options->reconnect_period <= 0)
+      {
+        fprintf(stderr, "Error: invalid value for 'reconnect-period': %d\n", options->reconnect_period);
+        retval = 0;
       }
       break;
 
@@ -352,31 +390,34 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
       break;
 
     case ':':
-      fprintf(stderr, "Error: missing value for option '%s'\n", argv[optind-1]);
-      retval=0;
+      fprintf(stderr, "Error: missing value for option '%s'\n", argv[optind - 1]);
+      retval = 0;
       break;
 
     default:
-      fprintf(stderr, "Error: unknown option '%s'\n", argv[optind-1]);
+      fprintf(stderr, "Error: unknown option '%s'\n", argv[optind - 1]);
       /*getopt returned unrecognised character code 0%o\n", c);*/
-      retval=0;
+      retval = 0;
       break;
     }
   }
 
   /* open log output */
-  if (sg_open_logfile(options) < 0) {
+  if (sg_open_logfile(options) < 0)
+  {
     return 0;
   }
 
   /* reset countdown values */
   sg_reset_countdown(options);
-   
-  if (optind < argc) {
-    retval=0;
+
+  if (optind < argc)
+  {
+    retval = 0;
     fprintf(stderr, "Error: unrecognised arguments: ");
-    while (optind < argc) {
-      fprintf (stderr, "%s", argv[optind++]);
+    while (optind < argc)
+    {
+      fprintf(stderr, "%s", argv[optind++]);
     }
     fprintf(stderr, "\n");
   }
@@ -384,7 +425,7 @@ static int sg_parse_options(int argc, char** argv, StreamgetOptions* options)
   return retval;
 }
 
-void sg_usage(FILE* ostream)
+void sg_usage(FILE *ostream)
 {
   fprintf(ostream, "\nstreamget " VERSION " (" GIT_REF ")\n\
     --url              |-u URL       # URL to get\n\
@@ -410,12 +451,13 @@ void sg_usage(FILE* ostream)
  */
 static void sg_alrm(int signo)
 {
-  if (g_options.verbose > 0) {
+  if (g_options.verbose > 0)
+  {
     time_t now = time(0);
 
     /* \n omitted intentionally, provided by ctime() */
     LOGINFO2(stdout, "Time limit of %d seconds expired at %s",
-	     g_options.time_limit, ctime(&now));
+             g_options.time_limit, ctime(&now));
     fsync(fileno(stdout));
   }
   exit(EXIT_SUCCESS);
@@ -427,7 +469,8 @@ static void sg_alrm(int signo)
  */
 static int sg_set_alarm(int timeout)
 {
-  if (SIG_ERR == signal(SIGALRM, sg_alrm)) {
+  if (SIG_ERR == signal(SIGALRM, sg_alrm))
+  {
     return 1;
   }
   return alarm(timeout);
@@ -443,11 +486,12 @@ int sg_sleep(time_t seconds)
   struct timespec req;
   struct timespec rem;
 
-  req.tv_sec  =  seconds;
+  req.tv_sec = seconds;
   req.tv_nsec = 0;
   memset(&rem, 0, sizeof(rem));
 
-  do {
+  do
+  {
     ret = nanosleep(&req, &rem);
     memcpy(&req, &rem, sizeof(struct timespec));
   } while (ret < 0 && EINTR == errno);
@@ -457,178 +501,226 @@ int sg_sleep(time_t seconds)
 
 int sg_mainloop(void)
 {
-  int retval       = 0; /* assume success */
+  int retval = 0; /* assume success */
   URL_FILE *handle = NULL;
-  int outfd        = -1;
-  int nread        = 0;
-  int nwritten     = 0; /* total written bytes written to file */
+  int outfd = -1;
+  int nread = 0;
+  int nwritten = 0;     /* total written bytes written to file */
   int nwritten_now = 0; /* bytes written in one iteration of the loop */
   char buffer[BUFFERSIZE];
-  
+
   /* defined valid states */
-  enum { IDLE, CONNECTING, CONNECTED, RECONNECTING, RECONNECTED, DONE };
+  enum
+  {
+    IDLE,
+    CONNECTING,
+    CONNECTED,
+    RECONNECTING,
+    RECONNECTED,
+    DONE
+  };
   int state = IDLE;
 
   /* Start time-limit timer, if required */
-  if (!g_options.time_from_connect) {
+  if (!g_options.time_from_connect)
+  {
     time_t now = time(0) + g_options.time_limit;
 
     /* \n omitted intentionally, provided by ctime() */
     LOGINFO2(stdout, "Time limit set to %d seconds, expires at %s",
-	     g_options.time_limit, ctime(&now));
+             g_options.time_limit, ctime(&now));
     (void)sg_set_alarm(g_options.time_limit);
   }
 
-  int* countdown = &g_options.connect_countdown;
+  int *countdown = &g_options.connect_countdown;
 
   /* try forever or until (re)connect periods or the time limit expire */
-  while (1) {
+  while (1)
+  {
 
     /* open URL */
-    if (handle) url_fclose(handle);
+    if (handle)
+      url_fclose(handle);
     handle = url_fopen(g_options.url, "r", g_useragent);
 
-    if (handle) {
+    if (handle)
+    {
 
       /* set options */
-      if (g_options.verbose > 1) {
-	url_setverbose(handle, g_options.verbose);
+      if (g_options.verbose > 1)
+      {
+        url_setverbose(handle, g_options.verbose);
       }
 
       /* first read */
       nread = url_fread(buffer, 1, sizeof(buffer), handle);
 
       /* be verbose if data was read */
-      if (nread) url_setprogress(handle, g_options.progress);
+      if (nread)
+        url_setprogress(handle, g_options.progress);
 
       /* set alarm for time limit when first data is written */
-      if (nread > 0) {
-	LOGINFO2(stdout, "Stream '%s' %s.\n", g_options.url, nwritten ? "reconnected" : "active");
+      if (nread > 0)
+      {
+        LOGINFO2(stdout, "Stream '%s' %s.\n", g_options.url, nwritten ? "reconnected" : "active");
 
-	/* update state */
-	if (0 == nwritten) state = CONNECTED;
-	else               state = RECONNECTED;
+        /* update state */
+        if (0 == nwritten)
+          state = CONNECTED;
+        else
+          state = RECONNECTED;
 
-	sg_reset_countdown(&g_options);
+        sg_reset_countdown(&g_options);
 
-	if (CONNECTED == state) {
+        if (CONNECTED == state)
+        {
 
-	  /*
-	   * Open output file late (when first data is about to be written,
-	   * to prevent creating an empty file when the source is not yet active.
-	   */
-	  outfd = open(g_options.output, O_CREAT | O_WRONLY | O_APPEND, 00666);
-	  if(outfd < 0) {
-	    LOGINFO2(stdout, "Error: couldn't open output file '%s'\n%s.\n",
-		     g_options.output, strerror(errno));
-	    retval = 2;
-	    goto exit;
-	  }
-	  if (!lockfd(outfd)) {
-	    LOGINFO2(stdout, "Error: couldn't lock output file '%s'\n%s.\n",
-		     g_options.output, strerror(errno));
-	    retval = 2;
-	    goto exit;
-	  }
-	
           /*
-	   * Signal parent that recording has started by sending the CONT signal
-	   */
-	  kill(getppid(), SIGCONT);
+           * Open output file late (when first data is about to be written,
+           * to prevent creating an empty file when the source is not yet active.
+           */
+          outfd = open(g_options.output, O_CREAT | O_WRONLY | O_APPEND, 00666);
+          if (outfd < 0)
+          {
+            LOGINFO2(stdout, "Error: couldn't open output file '%s'\n%s.\n",
+                     g_options.output, strerror(errno));
+            retval = 2;
+            goto exit;
+          }
+          if (!lockfd(outfd))
+          {
+            LOGINFO2(stdout, "Error: couldn't lock output file '%s'\n%s.\n",
+                     g_options.output, strerror(errno));
+            retval = 2;
+            goto exit;
+          }
 
-	  /* start time-limit timer if required */
-	  if (g_options.time_from_connect) {
-	    time_t now = time(0) + g_options.time_limit;
+          /*
+           * Signal parent that recording has started by sending the CONT signal
+           */
+          kill(getppid(), SIGCONT);
 
-	    /* \n omitted intentionally, provided by ctime() */
-	    LOGINFO2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
-		     g_options.time_limit, ctime(&now));
-	    (void)sg_set_alarm(g_options.time_limit);
-	  }
-	}
+          /* start time-limit timer if required */
+          if (g_options.time_from_connect)
+          {
+            time_t now = time(0) + g_options.time_limit;
+
+            /* \n omitted intentionally, provided by ctime() */
+            LOGINFO2(stdout, "Starting time-limit timer of %d seconds, will expire at %s",
+                     g_options.time_limit, ctime(&now));
+            (void)sg_set_alarm(g_options.time_limit);
+          }
+        }
       }
 
-      while (nread) {
-	if (nread != (nwritten_now = write(outfd, buffer, nread))) {
-	  LOGINFO2(stdout, "Error writing to file '%s' : %s.\n",
-		   g_options.output, strerror(errno));
-	  retval = 4;
-	  goto exit;
-	}
-	nwritten += nwritten_now;
-	nread = url_fread(buffer, 1, sizeof(buffer), handle);
+      while (nread)
+      {
+        if (nread != (nwritten_now = write(outfd, buffer, nread)))
+        {
+          LOGINFO2(stdout, "Error writing to file '%s' : %s.\n",
+                   g_options.output, strerror(errno));
+          retval = 4;
+          goto exit;
+        }
+        nwritten += nwritten_now;
+        nread = url_fread(buffer, 1, sizeof(buffer), handle);
       }
     }
 
-    if (*countdown < 0 || --*countdown > 0) {
-      if (nwritten <= 0) {
-	if (CONNECTING != state) {
-	  LOGINFO1(stdout, "Stream '%s' not active.\n", g_options.url);
-	}
-	/* update state */
-	state = CONNECTING;
-	sg_sleep(g_options.connect_timeout);
-      } else {
-	countdown = &g_options.reconnect_countdown;
-	if (RECONNECTING != state) {
-	  LOGINFO2(stdout, "Lost connection. Reconnecting (count=%d, timeout=%d)...\n",
-		   *countdown, g_options.reconnect_timeout);
-	}
-	/* update state */
-	state = RECONNECTING;
-	sg_sleep(g_options.reconnect_timeout);
+    if (*countdown < 0 || --*countdown > 0)
+    {
+      if (nwritten <= 0)
+      {
+        if (CONNECTING != state)
+        {
+          LOGINFO1(stdout, "Stream '%s' not active.\n", g_options.url);
+        }
+        /* update state */
+        state = CONNECTING;
+        sg_sleep(g_options.connect_timeout);
       }
+      else
+      {
+        countdown = &g_options.reconnect_countdown;
+        if (RECONNECTING != state)
+        {
+          LOGINFO2(stdout, "Lost connection. Reconnecting (count=%d, timeout=%d)...\n",
+                   *countdown, g_options.reconnect_timeout);
+        }
+        /* update state */
+        state = RECONNECTING;
+        sg_sleep(g_options.reconnect_timeout);
+      }
+    }
+    else
+    {
 
-    } else {
-
-      if (nwritten <= 0) {
-	LOGINFO2(stdout, "Connect period of %d seconds expired. "
-		 "Failed to open URL '%s'.\n", g_options.connect_period, g_options.url);
-	state = DONE;
-      } else {
-	LOGINFO2(stdout, "Reconnect period of %d seconds expired. "
-		 "Failed to open URL '%s'.\n", g_options.reconnect_period, g_options.url);
-	state = DONE;
+      if (nwritten <= 0)
+      {
+        LOGINFO2(stdout,
+                 "Connect period of %d seconds expired. "
+                 "Failed to open URL '%s'.\n",
+                 g_options.connect_period, g_options.url);
+        state = DONE;
+      }
+      else
+      {
+        LOGINFO2(stdout,
+                 "Reconnect period of %d seconds expired. "
+                 "Failed to open URL '%s'.\n",
+                 g_options.reconnect_period, g_options.url);
+        state = DONE;
       }
 
       break; // stop recording
     }
   }
 
- exit:
-  if (handle)        url_fclose(handle);
-  if (outfd > 0)     { unlockfd(outfd); close(outfd); }
-  if (g_options.log) fclose(g_options.log);
+exit:
+  if (handle)
+    url_fclose(handle);
+  if (outfd > 0)
+  {
+    unlockfd(outfd);
+    close(outfd);
+  }
+  if (g_options.log)
+    fclose(g_options.log);
   return retval;
 }
 /*
- * Main program 
+ * Main program
  * output to two test files (note the fgets method will corrupt binary files if
  * they contain 0 chars */
 int main(int argc, char *argv[])
 {
-  if (!sg_parse_options(argc, argv, &g_options)) {
+  if (!sg_parse_options(argc, argv, &g_options))
+  {
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
 
-  if (g_options.verbose > 1) {
+  if (g_options.verbose > 1)
+  {
     print_options(&g_options);
   }
 
-  if (!g_options.url) {
+  if (!g_options.url)
+  {
     fprintf(stderr, "Error: no URL specified.\n");
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
-  if (!g_options.output) {
+  if (!g_options.output)
+  {
     fprintf(stderr, "Error: no output file specified.\n");
     sg_usage(stderr);
     exit(EXIT_FAILURE);
   }
 
   /* daemonize if requested */
-  if (g_options.daemonize) daemonize();
+  if (g_options.daemonize)
+    daemonize();
 
   /* we got the parameters, get going... */
   return sg_mainloop();

@@ -9,47 +9,51 @@
 #include <sys/stat.h>
 
 #include <daemonize.h>
- 
+
 int daemonize()
 {
   int err = -1;
   pid_t pid;
   /*int i;*/
   int fd = -1;
-     
+
   pid = fork();
-  if (pid == -1) {
+  if (pid == -1)
+  {
     fprintf(stderr, "fork() failed: %s", strerror(errno));
     goto e;
   }
-  if (pid != 0) {
+  if (pid != 0)
+  {
     /* TODO: Hmmm... what about atexit callbacks? */
     exit(0);
   }
-     
+
   /* Get rid of controlling terminal. */
   setsid();
-     
+
   /* http://www.unixguide.net/unix/programming/1.7.shtml says, that it's
    * good idea to fork again... so be it! */
   pid = fork();
-  if (pid == -1) {
+  if (pid == -1)
+  {
     fprintf(stderr, "fork() failed: %s", strerror(errno));
     goto e;
   }
-  if (pid != 0) {
+  if (pid != 0)
+  {
     /* TODO: Hmmm... what about atexit callbacks? */
     exit(0);
   }
-     
-  /* It's not good idea to stay in old working directory. Don't care 
+
+  /* It's not good idea to stay in old working directory. Don't care
    * about errors though... */
 
   /* It's cumbersome to run from */
 #if 0
   chdir("/");
 #endif
-     
+
   /* We dont do umask(0) here, as suggested by
    * http://www.unixguide.net/unix/programming/1.7.shtml */
 
@@ -68,7 +72,7 @@ int daemonize()
   }
 #endif
 
-#if 0     
+#if 0
   /* Open /dev/null for redirections. */
   for (;;) {
     fd = open("/dev/null", O_RDWR);
@@ -95,21 +99,25 @@ int daemonize()
   }
 #endif
   err = 0;
-     
- e:
-     
-  if (fd != -1) {
-    for (;;) {
-      if (!close(fd)) {
-	break;
+
+e:
+
+  if (fd != -1)
+  {
+    for (;;)
+    {
+      if (!close(fd))
+      {
+        break;
       }
-      if (errno != EINTR) {
-	fprintf(stderr, "close() failed for /dev/null: %s", strerror(errno));
-	err = -1;
-	break;
+      if (errno != EINTR)
+      {
+        fprintf(stderr, "close() failed for /dev/null: %s", strerror(errno));
+        err = -1;
+        break;
       }
     }
   }
-     
+
   return err;
 }
