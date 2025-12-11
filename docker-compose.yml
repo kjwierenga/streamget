@@ -1,0 +1,14 @@
+services:
+  streamget-dev:
+    build: .
+    container_name: streamget-dev
+    volumes:
+      - .:/workspace
+    ports:
+      - "2345:2345" # gdbserver port
+    cap_add:
+      - SYS_PTRACE # Required for debugging
+    security_opt:
+      - seccomp:unconfined # Required for debugging
+    stdin_open: true
+    tty: true

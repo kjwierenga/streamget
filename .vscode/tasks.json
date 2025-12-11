@@ -1,0 +1,69 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Docker Container",
+            "type": "shell",
+            "command": "docker compose up -d",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Build in Docker (autogen)",
+            "type": "shell",
+            "command": "docker compose exec streamget-dev bash -c './autogen.sh && ./configure && make'",
+            "problemMatcher": "$gcc",
+            "group": "build"
+        },
+        {
+            "label": "Build in Docker (make only)",
+            "type": "shell",
+            "command": "docker compose exec streamget-dev make",
+            "problemMatcher": "$gcc",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Clean in Docker",
+            "type": "shell",
+            "command": "docker compose exec streamget-dev make clean",
+            "problemMatcher": []
+        },
+        {
+            "label": "Full Build in Docker",
+            "dependsOn": [
+                "Start Docker Container",
+                "Build in Docker (autogen)"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Docker Container",
+            "type": "shell",
+            "command": "docker compose down",
+            "problemMatcher": []
+        },
+        {
+            "label": "Start gdbserver in Docker",
+            "type": "shell",
+            "command": "docker compose exec streamget-dev gdbserver :2345 /workspace/src/streamget --url https://kerkdienstgemist.nl/streams/1.mp3 --output /workspace/test-uitzending.mp3 --time-limit 60 --verbose",
+            "isBackground": false,
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "dependsOn": ["Build in Docker (make only)"]
+        }
+    ]
+}
