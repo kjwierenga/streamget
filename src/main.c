@@ -545,6 +545,7 @@ int sg_mainloop(void)
 
     if (handle)
     {
+      LOGINFO2(stdout, "Stream '%s' %s.\n", g_options.url, nwritten ? "reopened" : "opened");
 
       /* set options */
       if (g_options.verbose > 1)
