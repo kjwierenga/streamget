@@ -1,0 +1,55 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch in Docker",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/workspace/src/streamget",
+            "args": [
+                "--url",
+                "https://kerkdienstgemist.nl/streams/1.mp3",
+                "--output",
+                "/workspace/test-uitzending.mp3",
+                "--time-limit",
+                "60",
+                "-l",
+                "/dev/stdout"
+            ],
+            "stopAtEntry": true,
+            "cwd": "/workspace",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "pipeTransport": {
+                "debuggerPath": "/usr/bin/gdb",
+                "pipeProgram": "docker",
+                "pipeArgs": [
+                    "exec",
+                    "-i",
+                    "dev",
+                    "sh",
+                    "-c"
+                ],
+                "pipeCwd": "${workspaceFolder}"
+            },
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/workspace": "${workspaceFolder}"
+            },
+            "preLaunchTask": "Build in Docker"
+        }
+    ]
+}

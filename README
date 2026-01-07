@@ -1,0 +1,93 @@
+# Streamget
+
+## Analysis of the Streamget Project
+
+This is **streamget**, a robust C program for recording streaming audio (MP3) from internet radio stations. Here's a complete analysis:
+
+### Main Functionality
+
+**streamget** is designed to record MP3 streams from Icecast servers with automatic reconnection on connection loss. The program:
+
+- Receives streaming MP3 data from a URL
+- Writes the stream to a file
+- Automatically reconnects when the connection drops
+- Stops after a specified time duration
+- Typically started via cron to make recordings at specific times
+
+### Core Functionality (src/main.c)
+
+**Key features:**
+
+1. **Robust streaming**: Keeps trying to reconnect on connection loss
+2. **Timing control**:
+   - Time limit for total recording duration (default 4 hours)
+   - Timer can start at program launch or on first successful connection
+3. **Reconnect logic**:
+   - `connect_timeout`: Time between initial connection attempts (default 20 sec)
+   - `connect_period`: How long to keep trying initial connection
+   - `reconnect_timeout`: Time between reconnection attempts (default 1 sec)
+   - `reconnect_period`: How long to keep trying to reconnect
+4. **Daemon mode**: Can run in the background
+5. **File locking**: Prevents multiple instances writing to the same file
+6. **Progress/verbose modes**: For monitoring and debugging
+7. **Signal handling**: SIGALRM for time limit, SIGCONT to parent when recording starts
+
+### URL Handling (src/url_fopen.c)
+
+Smart abstraction layer on top of libcurl:
+
+- **Transparent file I/O interface**: Uses familiar functions like `fopen()`, `fread()`, `fgets()`
+- **Dual mode**:
+  - Local files → standard C file I/O
+  - URLs → libcurl with buffering
+- **Non-blocking I/O**: Uses `curl_multi` interface with `select()` for asynchronous transfers
+- **Automatic buffering**: Dynamically growing buffer for streaming data
+- **HTTP features**: Follows redirects automatically, custom user-agent support
+
+### Helper Functions
+
+**daemonize.c**: Standard Unix daemon creation via double-fork pattern
+**lock.c**: File locking with `fcntl()` to prevent race conditions
+
+### Build System
+
+- **Autotools setup**: configure.in, Makefile.am
+- **Dependencies**: libcurl 7.9.7 or later
+- **Compiler flags**: `-Wall -ggdb` for warnings and debug info
+
+### Typical Use Case
+
+```bash
+streamget \
+  --url http://radio.station.com:8000/stream.mp3 \
+  --output /path/to/recording.mp3 \
+  --time-limit 3600 \
+  --log /var/log/streamget.log \
+  --daemonize \
+  --verbose
+```
+
+This records 1 hour from the stream, logs to file, and runs in the background.
+
+### Technical Quality
+
+**Strengths:**
+
+- Robust error handling with errno checking
+- Proper signal handling
+- EINTR retry loops on syscalls
+- Clean separation of concerns
+- Good logging infrastructure
+
+**Design Patterns:**
+
+- State machine in main loop (IDLE, CONNECTING, CONNECTED, RECONNECTING, etc.)
+- Callback pattern for libcurl data
+- Resource cleanup via goto-based error handling
+
+This is professional C code for a reliable recording system for internet radio streaming.
+
+## Copyright
+
+Copyright (c) 2025 Kerkdienst Gemist B.V.
+Author: K.J. Wierenga <k.j.wierenga@kerkdienstgemist.nl>

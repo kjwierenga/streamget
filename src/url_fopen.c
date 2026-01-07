@@ -53,20 +53,26 @@
 
 #define SELECT_TIMEOUT (10) /* seconds */
 
-enum fcurl_type_e { CFTYPE_NONE=0, CFTYPE_FILE=1, CFTYPE_CURL=2 };
+enum fcurl_type_e
+{
+    CFTYPE_NONE = 0,
+    CFTYPE_FILE = 1,
+    CFTYPE_CURL = 2
+};
 
 struct fcurl_data
 {
-    enum fcurl_type_e type;     /* type of handle */
-    union {
+    enum fcurl_type_e type; /* type of handle */
+    union
+    {
         CURL *curl;
         FILE *file;
-    } handle;                   /* handle */
+    } handle; /* handle */
 
-    char *buffer;               /* buffer to store cached data*/
-    int buffer_len;             /* currently allocated buffers length */
-    int buffer_pos;             /* end of data in buffer*/
-    int still_running;          /* Is background url fetch still in progress */
+    char *buffer;      /* buffer to store cached data*/
+    int buffer_len;    /* currently allocated buffers length */
+    int buffer_pos;    /* end of data in buffer*/
+    int still_running; /* Is background url fetch still in progress */
 };
 
 typedef struct fcurl_data URL_FILE;
@@ -97,22 +103,22 @@ write_callback(char *buffer,
     URL_FILE *url = (URL_FILE *)userp;
     size *= nitems;
 
-    rembuff=url->buffer_len - url->buffer_pos;//remaining space in buffer
+    rembuff = url->buffer_len - url->buffer_pos; // remaining space in buffer
 
-    if(size > rembuff)
+    if (size > rembuff)
     {
-        //not enuf space in buffer
-        newbuff=realloc(url->buffer,url->buffer_len + (size - rembuff));
-        if(newbuff==NULL)
+        // not enuf space in buffer
+        newbuff = realloc(url->buffer, url->buffer_len + (size - rembuff));
+        if (newbuff == NULL)
         {
-            fprintf(stderr,"callback buffer grow failed\n");
-            size=rembuff;
+            fprintf(stderr, "callback buffer grow failed\n");
+            size = rembuff;
         }
         else
         {
             /* realloc suceeded increase buffer size*/
-            url->buffer_len+=size - rembuff;
-            url->buffer=newbuff;
+            url->buffer_len += size - rembuff;
+            url->buffer = newbuff;
 
             /*printf("Callback buffer grown to %d bytes\n",url->buffer_len);*/
         }
@@ -128,7 +134,7 @@ write_callback(char *buffer,
 
 /* use to attempt to fill the read buffer up to requested number of bytes */
 static int
-fill_buffer(URL_FILE *file,int want,int waittime)
+fill_buffer(URL_FILE *file, int want, int waittime)
 {
     fd_set fdread;
     fd_set fdwrite;
@@ -140,7 +146,7 @@ fill_buffer(URL_FILE *file,int want,int waittime)
     /* only attempt to fill buffer if transactions still running and buffer
      * doesnt exceed required size already
      */
-    if((!file->still_running) || (file->buffer_pos > want))
+    if ((!file->still_running) || (file->buffer_pos > want))
         return 0;
 
     /* attempt to fill buffer */
@@ -157,44 +163,61 @@ fill_buffer(URL_FILE *file,int want,int waittime)
         /* get file descriptors from the transfers */
         curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
 
-        rc = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
-
-        switch(rc) {
-        case -1:
-            /* select error */
-            break;
-
-        case 0:
-            break;
-
-        default:
-            /* timeout or readable/writable sockets */
-            /* note we *could* be more efficient and not wait for
-             * CURLM_CALL_MULTI_PERFORM to clear here and check it on re-entry
-             * but that gets messy */
-            while(curl_multi_perform(multi_handle, &file->still_running) ==
-                  CURLM_CALL_MULTI_PERFORM);
-
-            break;
+        /* According to libcurl docs, maxfd can be -1 when using internal timers.
+         * In this case, we should sleep briefly and call curl_multi_perform. */
+        if (maxfd == -1)
+        {
+            /* No file descriptors, curl is using internal timers.
+             * Sleep for 100ms and let curl process. */
+            struct timeval wait = {0, 100000}; /* 100ms */
+            select(0, NULL, NULL, NULL, &wait);
+            while (curl_multi_perform(multi_handle, &file->still_running) ==
+                   CURLM_CALL_MULTI_PERFORM)
+                ;
         }
-    } while(file->still_running && (file->buffer_pos < want));
+        else
+        {
+            rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
+
+            switch (rc)
+            {
+            case -1:
+                /* select error */
+                break;
+
+            case 0:
+                break;
+
+            default:
+                /* timeout or readable/writable sockets */
+                /* note we *could* be more efficient and not wait for
+                 * CURLM_CALL_MULTI_PERFORM to clear here and check it on re-entry
+                 * but that gets messy */
+                while (curl_multi_perform(multi_handle, &file->still_running) ==
+                       CURLM_CALL_MULTI_PERFORM)
+                    ;
+
+                break;
+            }
+        }
+    } while (file->still_running && (file->buffer_pos < want));
     return 1;
 }
 
 /* use to remove want bytes from the front of a files buffer */
 static int
-use_buffer(URL_FILE *file,int want)
+use_buffer(URL_FILE *file, int want)
 {
     /* sort out buffer */
-    if((file->buffer_pos - want) <=0)
+    if ((file->buffer_pos - want) <= 0)
     {
         /* ditch buffer - write will recreate */
-        if(file->buffer)
+        if (file->buffer)
             free(file->buffer);
 
-        file->buffer=NULL;
-        file->buffer_pos=0;
-        file->buffer_len=0;
+        file->buffer = NULL;
+        file->buffer_pos = 0;
+        file->buffer_len = 0;
     }
     else
     {
@@ -208,48 +231,52 @@ use_buffer(URL_FILE *file,int want)
     return 0;
 }
 
-static int setoption(CURL* curl, CURLoption option, int value)
+static int setoption(CURL *curl, CURLoption option, int value)
 {
-  if (!curl) {
-    errno=EBADF;
-    return EOF;
-  }
+    if (!curl)
+    {
+        errno = EBADF;
+        return EOF;
+    }
 
-  return curl_easy_setopt(curl, option, value);
+    return curl_easy_setopt(curl, option, value);
 }
 
-int url_setverbose(URL_FILE* file, int value)
+int url_setverbose(URL_FILE *file, int value)
 {
-  if (!file || file->type != CFTYPE_CURL) {
-    errno=EBADF;
-    return EOF;
-  }
+    if (!file || file->type != CFTYPE_CURL)
+    {
+        errno = EBADF;
+        return EOF;
+    }
 
-  return setoption(file->handle.curl, CURLOPT_VERBOSE, value ? 1 : 0);
+    return setoption(file->handle.curl, CURLOPT_VERBOSE, value ? 1 : 0);
 }
 
-int url_setprogress(URL_FILE* file, int value)
+int url_setprogress(URL_FILE *file, int value)
 {
-  if (!file || file->type != CFTYPE_CURL) {
-    errno=EBADF;
-    return EOF;
-  }
+    if (!file || file->type != CFTYPE_CURL)
+    {
+        errno = EBADF;
+        return EOF;
+    }
 
-  return setoption(file->handle.curl, CURLOPT_NOPROGRESS, value ? 0 : 1);
+    return setoption(file->handle.curl, CURLOPT_NOPROGRESS, value ? 0 : 1);
 }
 
-int url_setuseragent(URL_FILE* file, char* value)
+int url_setuseragent(URL_FILE *file, char *value)
 {
-  if (!file || file->type != CFTYPE_CURL) {
-    errno=EBADF;
-    return EOF;
-  }
+    if (!file || file->type != CFTYPE_CURL)
+    {
+        errno = EBADF;
+        return EOF;
+    }
 
-  return curl_easy_setopt(file, CURLOPT_USERAGENT, value);
+    return curl_easy_setopt(file, CURLOPT_USERAGENT, value);
 }
 
 URL_FILE *
-url_fopen(char *url,const char *operation, char *useragent)
+url_fopen(char *url, const char *operation, char *useragent)
 {
     /* this code could check for URLs or types in the 'url' and
        basicly use the real fopen() for standard files */
@@ -258,12 +285,12 @@ url_fopen(char *url,const char *operation, char *useragent)
     (void)operation;
 
     file = (URL_FILE *)malloc(sizeof(URL_FILE));
-    if(!file)
+    if (!file)
         return NULL;
 
     memset(file, 0, sizeof(URL_FILE));
 
-    if((file->handle.file=fopen(url,operation)))
+    if ((file->handle.file = fopen(url, operation)))
     {
         file->type = CFTYPE_FILE; /* marked as URL */
     }
@@ -276,30 +303,32 @@ url_fopen(char *url,const char *operation, char *useragent)
         curl_easy_setopt(file->handle.curl, CURLOPT_WRITEDATA, file);
         curl_easy_setopt(file->handle.curl, CURLOPT_WRITEFUNCTION, write_callback);
 
-	/* streamget requires the following options */
-	curl_easy_setopt(file->handle.curl, CURLOPT_FOLLOWLOCATION, 1); /* redirect automatically */
-	curl_easy_setopt(file->handle.curl, CURLOPT_NOSIGNAL, 1);       /* we don't want signals */
-	if (useragent) {
-	  curl_easy_setopt(file->handle.curl, CURLOPT_USERAGENT, useragent);
-	}
-	curl_easy_setopt(file->handle.curl, CURLOPT_STDERR, stdout); /* send verbose and progress to stdout */
-	curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1); /* fail  on error codes > 300 */
+        /* streamget requires the following options */
+        curl_easy_setopt(file->handle.curl, CURLOPT_FOLLOWLOCATION, 1); /* redirect automatically */
+        curl_easy_setopt(file->handle.curl, CURLOPT_NOSIGNAL, 1);       /* we don't want signals */
+        if (useragent)
+        {
+            curl_easy_setopt(file->handle.curl, CURLOPT_USERAGENT, useragent);
+        }
+        curl_easy_setopt(file->handle.curl, CURLOPT_STDERR, stdout); /* send verbose and progress to stdout */
+        curl_easy_setopt(file->handle.curl, CURLOPT_FAILONERROR, 1); /* fail  on error codes > 300 */
 
 #if 0
 	curl_easy_setopt(file->handle.curl, CURLOPT_FRESH_CONNECT, 1);  /* new connection every time */
 	curl_easy_setopt(file->handle.curl, CURLOPT_FORBID_REUSE, 1);   /* don't reuse existing connections */
 #endif
 
-        if(!multi_handle)
+        if (!multi_handle)
             multi_handle = curl_multi_init();
 
         curl_multi_add_handle(multi_handle, file->handle.curl);
 
         /* lets start the fetch */
-        while(curl_multi_perform(multi_handle, &file->still_running) ==
-              CURLM_CALL_MULTI_PERFORM );
+        while (curl_multi_perform(multi_handle, &file->still_running) ==
+               CURLM_CALL_MULTI_PERFORM)
+            ;
 
-        if((file->buffer_pos == 0) && (!file->still_running))
+        if ((file->buffer_pos == 0) && (!file->still_running))
         {
             /* if still_running is 0 now, we should return NULL */
 
@@ -317,15 +346,14 @@ url_fopen(char *url,const char *operation, char *useragent)
     return file;
 }
 
-int
-url_fclose(URL_FILE *file)
+int url_fclose(URL_FILE *file)
 {
-    int ret=0;/* default is good return */
+    int ret = 0; /* default is good return */
 
-    switch(file->type)
+    switch (file->type)
     {
     case CFTYPE_FILE:
-        ret=fclose(file->handle.file); /* passthrough */
+        ret = fclose(file->handle.file); /* passthrough */
         break;
 
     case CFTYPE_CURL:
@@ -337,38 +365,36 @@ url_fclose(URL_FILE *file)
         break;
 
     default: /* unknown or supported type - oh dear */
-        ret=EOF;
-        errno=EBADF;
+        ret = EOF;
+        errno = EBADF;
         break;
-
     }
 
-    if(file->buffer)
-        free(file->buffer);/* free any allocated buffer space */
+    if (file->buffer)
+        free(file->buffer); /* free any allocated buffer space */
 
     free(file);
 
     return ret;
 }
 
-int
-url_feof(URL_FILE *file)
+int url_feof(URL_FILE *file)
 {
-    int ret=0;
+    int ret = 0;
 
-    switch(file->type)
+    switch (file->type)
     {
     case CFTYPE_FILE:
-        ret=feof(file->handle.file);
+        ret = feof(file->handle.file);
         break;
 
     case CFTYPE_CURL:
-        if((file->buffer_pos == 0) && (!file->still_running))
+        if ((file->buffer_pos == 0) && (!file->still_running))
             ret = 1;
         break;
     default: /* unknown or supported type - oh dear */
-        ret=-1;
-        errno=EBADF;
+        ret = -1;
+        errno = EBADF;
         break;
     }
     return ret;
@@ -379,42 +405,41 @@ url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file)
 {
     size_t want;
 
-    switch(file->type)
+    switch (file->type)
     {
     case CFTYPE_FILE:
-        want=fread(ptr,size,nmemb,file->handle.file);
+        want = fread(ptr, size, nmemb, file->handle.file);
         break;
 
     case CFTYPE_CURL:
         want = nmemb * size;
 
-        fill_buffer(file,want,1);
+        fill_buffer(file, want, 1);
 
         /* check if theres data in the buffer - if not fill_buffer()
          * either errored or EOF */
-        if(!file->buffer_pos)
+        if (!file->buffer_pos)
             return 0;
 
         /* ensure only available data is considered */
-        if(file->buffer_pos < want)
+        if (file->buffer_pos < want)
             want = file->buffer_pos;
 
         /* xfer data to caller */
         memcpy(ptr, file->buffer, want);
 
-        use_buffer(file,want);
+        use_buffer(file, want);
 
-        want = want / size;     /* number of items - nb correct op - checked
-                                 * with glibc code*/
+        want = want / size; /* number of items - nb correct op - checked
+                             * with glibc code*/
 
         /*printf("(fread) return %d bytes %d left\n", want,file->buffer_pos);*/
         break;
 
     default: /* unknown or supported type - oh dear */
-        want=0;
-        errno=EBADF;
+        want = 0;
+        errno = EBADF;
         break;
-
     }
     return want;
 }
@@ -422,60 +447,59 @@ url_fread(void *ptr, size_t size, size_t nmemb, URL_FILE *file)
 char *
 url_fgets(char *ptr, int size, URL_FILE *file)
 {
-    int want = size - 1;/* always need to leave room for zero termination */
+    int want = size - 1; /* always need to leave room for zero termination */
     int loop;
 
-    switch(file->type)
+    switch (file->type)
     {
     case CFTYPE_FILE:
-        ptr = fgets(ptr,size,file->handle.file);
+        ptr = fgets(ptr, size, file->handle.file);
         break;
 
     case CFTYPE_CURL:
-        fill_buffer(file,want,1);
+        fill_buffer(file, want, 1);
 
         /* check if theres data in the buffer - if not fill either errored or
          * EOF */
-        if(!file->buffer_pos)
+        if (!file->buffer_pos)
             return NULL;
 
         /* ensure only available data is considered */
-        if(file->buffer_pos < want)
+        if (file->buffer_pos < want)
             want = file->buffer_pos;
 
         /*buffer contains data */
         /* look for newline or eof */
-        for(loop=0;loop < want;loop++)
+        for (loop = 0; loop < want; loop++)
         {
-            if(file->buffer[loop] == '\n')
+            if (file->buffer[loop] == '\n')
             {
-                want=loop+1;/* include newline */
+                want = loop + 1; /* include newline */
                 break;
             }
         }
 
         /* xfer data to caller */
         memcpy(ptr, file->buffer, want);
-        ptr[want]=0;/* allways null terminate */
+        ptr[want] = 0; /* allways null terminate */
 
-        use_buffer(file,want);
+        use_buffer(file, want);
 
         /*printf("(fgets) return %d bytes %d left\n", want,file->buffer_pos);*/
         break;
 
     default: /* unknown or supported type - oh dear */
-        ptr=NULL;
-        errno=EBADF;
+        ptr = NULL;
+        errno = EBADF;
         break;
     }
 
-    return ptr;/*success */
+    return ptr; /*success */
 }
 
-void
-url_rewind(URL_FILE *file)
+void url_rewind(URL_FILE *file)
 {
-    switch(file->type)
+    switch (file->type)
     {
     case CFTYPE_FILE:
         rewind(file->handle.file); /* passthrough */
@@ -489,18 +513,16 @@ url_rewind(URL_FILE *file)
         curl_multi_add_handle(multi_handle, file->handle.curl);
 
         /* ditch buffer - write will recreate - resets stream pos*/
-        if(file->buffer)
+        if (file->buffer)
             free(file->buffer);
 
-        file->buffer=NULL;
-        file->buffer_pos=0;
-        file->buffer_len=0;
+        file->buffer = NULL;
+        file->buffer_pos = 0;
+        file->buffer_len = 0;
 
         break;
 
     default: /* unknown or supported type - oh dear */
         break;
-
     }
-
 }
