@@ -1,3 +1,10 @@
+2026-01-07 Klaas Jan Wierenga   <k.j.wierenga@kerkdienstgemist.nl>
+
+	* version 2.0
+	* [fix] hang on libcurl 7.45+ when curl_multi_fdset returns max fd=-1
+	* [fix] don't take absolute value for time_limit
+	* [add] logging when input (url) has successfully been opened
+
 2010-09-15 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.8
@@ -9,13 +16,13 @@
 	* version 1.7
         * send SIGCONT to parent process when actual recording starts (output file opened)
           this signal can be caught in the parent process to trigger callbacks
-	
+
 2009-06-12 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.6
 	* add file locking, to prevent two instances of streamget writing to the same output file
 	* svn:ignore generated files
-	
+
 2008-05-29 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.5
@@ -24,12 +31,12 @@
 	* improved performance by replacing fwrite by write
 	* before these changes io-wait was 59% and DSK busy 98%
 	* after these changes io-wait is 4% and DSK busy 6%
-	
+
 2006-03-10 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.4
 	* improved logging
-	
+
 2006-07-17 Klaas Jan Wierenga   <k.j.wierenga@audioserver.nl>
 
 	* version 1.3
@@ -46,5 +53,3 @@
 	* version 1.2
 	* open output file after first succesful read
 	* use more efficient line-bufferend mode for log output (instead of unbuffered mode)
-
-
