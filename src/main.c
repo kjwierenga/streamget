@@ -323,7 +323,7 @@ static int sg_parse_options(int argc, char **argv, StreamgetOptions *options)
       break;
 
     case 's':
-      options->time_limit = abs(atoi(optarg));
+      options->time_limit = atoi(optarg);
       break;
 
     case 'x':
