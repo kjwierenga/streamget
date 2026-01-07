@@ -7,196 +7,33 @@
             "request": "launch",
             "program": "/workspace/src/streamget",
             "args": [
-                "--help"
-            ],
-            "stopAtEntry": true,
-            "cwd": "/workspace",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "pipeTransport": {
-                "debuggerPath": "/usr/bin/gdb",
-                "pipeProgram": "docker",
-                "pipeArgs": [
-                    "exec",
-                    "-i",
-                    "streamget-dev",
-                    "sh",
-                    "-c"
-                ],
-                "pipeCwd": "${workspaceFolder}"
-            },
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ],
-            "sourceFileMap": {
-                "/workspace": "${workspaceFolder}"
-            },
-            "preLaunchTask": "Build in Docker (make only)"
-        },
-        {
-            "name": "(gdb) Launch with URL and Output",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "/workspace/src/streamget",
-            "args": [
                 "--url",
-                // "http://icecast.omroep.nl/radio1-bb-mp3",
                 "https://kerkdienstgemist.nl/streams/1.mp3",
                 "--output",
                 "/workspace/test-uitzending.mp3",
                 "--time-limit",
-                "3600",
-                "--verbose"
+                "60",
+                "-l",
+                "/dev/stdout"
             ],
-            "stopAtEntry": false,
-            "cwd": "/workspace",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "pipeTransport": {
-                "debuggerPath": "/usr/bin/gdb",
-                "pipeProgram": "docker",
-                "pipeArgs": [
-                    "exec",
-                    "-i",
-                    "streamget-dev",
-                    "sh",
-                    "-c"
-                ],
-                "pipeCwd": "${workspaceFolder}"
-            },
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ],
-            "sourceFileMap": {
-                "/workspace": "${workspaceFolder}"
-            },
-            "preLaunchTask": "Build in Docker (make only)"
-        },
-        {
-            "name": "(gdb) Launch with Progress Mode",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "/workspace/src/streamget",
-            "args": [
-                "--url",
-                "http://icecast.omroep.nl/radio1-bb-mp3",
-                "--output",
-                "/workspace/test.mp3",
-                "--time-limit",
-                "30",
-                "--progress",
-                "-vv"
-            ],
-            "stopAtEntry": false,
-            "cwd": "/workspace",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "pipeTransport": {
-                "debuggerPath": "/usr/bin/gdb",
-                "pipeProgram": "docker",
-                "pipeArgs": [
-                    "exec",
-                    "-i",
-                    "streamget-dev",
-                    "sh",
-                    "-c"
-                ],
-                "pipeCwd": "${workspaceFolder}"
-            },
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ],
-            "sourceFileMap": {
-                "/workspace": "${workspaceFolder}"
-            },
-            "preLaunchTask": "Build in Docker (make only)"
-        },
-        {
-            "name": "(gdb) Attach to gdbserver in Docker",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "/workspace/src/streamget",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "/workspace",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "miDebuggerServerAddress": "localhost:2345",
-            "pipeTransport": {
-                "debuggerPath": "/usr/bin/gdb",
-                "pipeProgram": "docker",
-                "pipeArgs": [
-                    "exec",
-                    "-i",
-                    "streamget-dev",
-                    "sh",
-                    "-c"
-                ],
-                "pipeCwd": "${workspaceFolder}"
-            },
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ],
-            "sourceFileMap": {
-                "/workspace": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "(gdb) Remote Debug in Docker",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/streamget",
-            "args": [],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}",
+            "cwd": "/workspace",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerServerAddress": "localhost:2345",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "pipeTransport": {
+                "debuggerPath": "/usr/bin/gdb",
+                "pipeProgram": "docker",
+                "pipeArgs": [
+                    "exec",
+                    "-i",
+                    "dev",
+                    "sh",
+                    "-c"
+                ],
+                "pipeCwd": "${workspaceFolder}"
+            },
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -212,7 +49,7 @@
             "sourceFileMap": {
                 "/workspace": "${workspaceFolder}"
             },
-            "preLaunchTask": "Start gdbserver in Docker"
+            "preLaunchTask": "Build in Docker"
         }
     ]
 }
