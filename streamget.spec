@@ -1,11 +1,11 @@
 Name:		streamget
-Version:	2.0
+Version:	2.1
 Release:	1
 Summary:	Robust stream recorder. Does automatic reconnect when stream is temporarily unavailable.
 Group:		Applications/Multimedia
 License:	Proprietary
-URL:		http://www.audioserver.nl
-Vendor:		AUDIOserver.nl <info@audioserver.nl>
+URL:		https://kerkdienstgemist.nl
+Vendor:		Kerkdienst Gemist <info@kerkdienstgemist.nl>
 Source:     	%{name}-%{version}.tar.gz
 Prefix:		%{_prefix}
 BuildRoot:	%{_tmppath}/%{name}-root
