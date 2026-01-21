@@ -324,6 +324,11 @@ static int sg_parse_options(int argc, char **argv, StreamgetOptions *options)
 
     case 's':
       options->time_limit = atoi(optarg);
+      if (options->time_limit <= 0)
+      {
+        fprintf(stderr, "Error: invalid value for 'time-limit': %d\n", options->time_limit);
+        retval = 0;
+      }
       break;
 
     case 'x':
